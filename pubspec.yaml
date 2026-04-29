@@ -1,0 +1,26 @@
+name: flux
+description: "FLUX — Terminal-style RSVP speed reading app"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  epubx: ^4.0.0
+  file_picker: ^10.1.9
+  shared_preferences: ^2.5.3
+  path_provider: ^2.1.5
+  provider: ^6.1.5
+  google_fonts: ^6.2.1
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
