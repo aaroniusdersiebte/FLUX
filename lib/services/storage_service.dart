@@ -151,4 +151,39 @@ class StorageService {
     if (first) await prefs.setBool(_firstLaunchKey, false);
     return first;
   }
+
+  // ─── Streak Mode ───────────────────────────────────────────────────────────
+
+  static Future<bool> loadStreakModeEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('streak_mode_enabled') ?? true;
+  }
+
+  static Future<void> saveStreakModeEnabled(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('streak_mode_enabled', v);
+  }
+
+  static Future<int> loadTodayWords() async {
+    final stats = await loadDailyStats();
+    return stats[_dateKey(DateTime.now())] ?? 0;
+  }
+
+  static Future<int> loadGoalTierForToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedDate = prefs.getString('streak_goal_date') ?? '';
+    final today = _dateKey(DateTime.now());
+    if (savedDate != today) {
+      await prefs.setInt('streak_goal_tier', 0);
+      await prefs.setString('streak_goal_date', today);
+      return 0;
+    }
+    return prefs.getInt('streak_goal_tier') ?? 0;
+  }
+
+  static Future<void> saveGoalTier(int tier) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('streak_goal_tier', tier);
+    await prefs.setString('streak_goal_date', _dateKey(DateTime.now()));
+  }
 }

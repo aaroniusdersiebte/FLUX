@@ -61,6 +61,15 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 16),
               _RsvpPreview(state: state),
               _divider(),
+              _SectionLabel('GOALS'),
+              const SizedBox(height: 12),
+              _Toggle(
+                label: 'STREAK MODE',
+                subtitle: 'Tägliche Wortziele: 500 → 1000 → 1500 → 2000 → 3000',
+                value: state.streakModeEnabled,
+                onChanged: state.setStreakModeEnabled,
+              ),
+              _divider(),
               _SectionLabel('ABOUT'),
               const SizedBox(height: 8),
               Text(

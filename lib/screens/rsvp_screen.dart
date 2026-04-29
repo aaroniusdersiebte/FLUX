@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,17 +16,21 @@ class RsvpScreen extends StatefulWidget {
 
 class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
   bool _showPauseOverlay = false;
+  bool _isDecrypting = false;
+  bool _showMilestone = false;
+  int _milestoneTarget = 0;
   late AppState _appState;
-  late AnimationController _startAnim;
+  late AnimationController _milestoneAnim;
 
   @override
   void initState() {
     super.initState();
     _appState = context.read<AppState>();
-    _startAnim = AnimationController(
-      duration: const Duration(milliseconds: 250),
+    _milestoneAnim = AnimationController(
+      duration: const Duration(milliseconds: 1400),
       vsync: this,
-    )..addListener(() => setState(() {}));
+    );
+    _appState.addListener(_checkMilestone);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startPlayWithAnimation();
@@ -42,19 +45,39 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _startAnim.dispose();
+    _appState.removeListener(_checkMilestone);
+    _milestoneAnim.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
-  Future<void> _startPlayWithAnimation() async {
-    try {
-      await _startAnim.forward().orCancel;
-      await _startAnim.reverse().orCancel;
-    } catch (_) {
+  void _checkMilestone() {
+    final m = _appState.pendingMilestone;
+    if (m != null && !_showMilestone && mounted) {
+      setState(() {
+        _showMilestone = true;
+        _milestoneTarget = m;
+      });
+      _milestoneAnim.forward().then((_) {
+        if (!mounted) return;
+        _appState.clearMilestone();
+        _appState.play();
+        setState(() => _showMilestone = false);
+        _milestoneAnim.reset();
+      });
+    }
+  }
+
+  void _startPlayWithAnimation() {
+    if (!mounted) return;
+    final words = _appState.words;
+    final idx = _appState.wordIndex;
+    final currentWord = (words.isNotEmpty && idx < words.length) ? words[idx] : '';
+    if (currentWord.isEmpty) {
+      _appState.play();
       return;
     }
-    if (mounted) _appState.play();
+    setState(() => _isDecrypting = true);
   }
 
   void _handleTap(AppState state) {
@@ -87,7 +110,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
         final words = state.words;
         final idx = state.wordIndex;
         final progress = words.isNotEmpty ? idx / words.length : 0.0;
-        final focalScale = lerpDouble(1.0, 2.5, _startAnim.value)!;
+        final streakProgress = state.streakModeEnabled ? state.goalProgress : null;
 
         return Scaffold(
           backgroundColor: TerminalColors.background,
@@ -99,8 +122,8 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
               child: Stack(
                 children: [
                   isLandscape
-                      ? _buildLandscape(state, words, idx, progress, focalScale)
-                      : _buildPortrait(state, words, idx, focalScale),
+                      ? _buildLandscape(state, words, idx, progress, streakProgress)
+                      : _buildPortrait(state, words, idx, streakProgress),
                   if (_showPauseOverlay) _PauseOverlay(state: state),
                   if (!isLandscape)
                     Positioned(
@@ -117,6 +140,14 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
                         ),
                       ),
                     ),
+                  if (_showMilestone)
+                    _MilestoneOverlay(
+                      anim: _milestoneAnim,
+                      target: _milestoneTarget,
+                      tierStart: _milestoneTarget > 0
+                          ? AppState.goalTierStart(_milestoneTarget)
+                          : 0,
+                    ),
                 ],
               ),
             ),
@@ -126,8 +157,15 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _onDecryptComplete() {
+    if (mounted) {
+      setState(() => _isDecrypting = false);
+      _appState.play();
+    }
+  }
+
   Widget _buildPortrait(
-      AppState state, List<String> words, int idx, double focalScale) {
+      AppState state, List<String> words, int idx, double? streakProgress) {
     return Column(
       children: [
         _TopBar(state: state),
@@ -140,7 +178,9 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
                 currentIndex: idx,
                 showContext: state.showContext,
                 fontSize: state.fontSize,
-                focalScale: focalScale,
+                streakProgress: streakProgress,
+                isDecrypting: _isDecrypting,
+                onDecryptComplete: _onDecryptComplete,
               ),
             ),
           ),
@@ -151,7 +191,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildLandscape(AppState state, List<String> words, int idx,
-      double progress, double focalScale) {
+      double progress, double? streakProgress) {
     return Row(
       children: [
         SizedBox(
@@ -186,7 +226,9 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
               currentIndex: idx,
               showContext: state.showContext,
               fontSize: (state.fontSize * 0.82).clamp(16.0, 48.0),
-              focalScale: focalScale,
+              streakProgress: streakProgress,
+              isDecrypting: _isDecrypting,
+              onDecryptComplete: _onDecryptComplete,
             ),
           ),
         ),
@@ -451,6 +493,57 @@ class _Chip extends StatelessWidget {
       child: Text(text,
           style: GoogleFonts.jetBrainsMono(
               color: TerminalColors.textMuted, fontSize: 9, letterSpacing: 1)),
+    );
+  }
+}
+
+class _MilestoneOverlay extends StatelessWidget {
+  final AnimationController anim;
+  final int target;
+  final int tierStart;
+
+  const _MilestoneOverlay({
+    required this.anim,
+    required this.target,
+    required this.tierStart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final countAnim = IntTween(begin: tierStart, end: target).animate(
+      CurvedAnimation(parent: anim, curve: const Interval(0.0, 0.43, curve: Curves.easeOut)),
+    );
+    final fadeAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: anim, curve: const Interval(0.71, 1.0, curve: Curves.easeIn)),
+    );
+    final scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.35, end: 1.0), weight: 70),
+    ]).animate(CurvedAnimation(parent: anim, curve: const Interval(0.0, 0.43)));
+
+    return Align(
+      alignment: const Alignment(0, 0.45),
+      child: AnimatedBuilder(
+        animation: anim,
+        builder: (context, _) {
+          final showGoal = anim.value >= 0.43 && anim.value < 0.71;
+          return FadeTransition(
+            opacity: fadeAnim,
+            child: ScaleTransition(
+              scale: scaleAnim,
+              child: Text(
+                showGoal ? '★  GOAL' : '${countAnim.value}',
+                style: GoogleFonts.jetBrainsMono(
+                  color: TerminalColors.amber,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 4,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

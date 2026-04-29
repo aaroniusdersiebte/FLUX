@@ -9,6 +9,8 @@ class ScrambleText extends StatefulWidget {
   final TextStyle? style;
   final Duration duration;
   final VoidCallback? onComplete;
+  final Color? digitColor;
+  final bool reverse;
 
   const ScrambleText({
     super.key,
@@ -16,6 +18,8 @@ class ScrambleText extends StatefulWidget {
     this.style,
     this.duration = const Duration(milliseconds: 800),
     this.onComplete,
+    this.digitColor,
+    this.reverse = false,
   });
 
   @override
@@ -75,14 +79,26 @@ class _ScrambleTextState extends State<ScrambleText> {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      _displayed,
-      style: widget.style ??
-          GoogleFonts.jetBrainsMono(
-            color: TerminalColors.amber,
-            fontSize: 14,
-            letterSpacing: 1.5,
-          ),
-    );
+    final baseStyle = widget.style ??
+        GoogleFonts.jetBrainsMono(
+          color: TerminalColors.amber,
+          fontSize: 14,
+          letterSpacing: 1.5,
+        );
+
+    if (widget.digitColor == null) {
+      return Text(_displayed, style: baseStyle);
+    }
+
+    final spans = <TextSpan>[];
+    for (int i = 0; i < _displayed.length; i++) {
+      final code = _displayed.codeUnitAt(i);
+      final isDigit = code >= 48 && code <= 57;
+      spans.add(TextSpan(
+        text: _displayed[i],
+        style: isDigit ? baseStyle.copyWith(color: widget.digitColor) : null,
+      ));
+    }
+    return RichText(text: TextSpan(style: baseStyle, children: spans));
   }
 }

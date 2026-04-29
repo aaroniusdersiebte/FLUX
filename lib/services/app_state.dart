@@ -36,6 +36,13 @@ class AppState extends ChangeNotifier {
   int _totalWordsRead = 0;
   int _streak = 0;
 
+  // ─── Streak Mode ───────────────────────────────────────────────────────────
+  static const List<int> _goals = [500, 1000, 1500, 2000, 3000, 5000];
+  bool _streakModeEnabled = true;
+  int _dailyWordsRead = 0;
+  int _dailyGoalTier = 0;
+  int? _pendingMilestone;
+
   int get wpm => _wpm;
   bool get adaptivePause => _adaptivePause;
   bool get showContext => _showContext;
@@ -43,6 +50,29 @@ class AppState extends ChangeNotifier {
   bool get isFirstLaunch => _isFirstLaunch;
   int get totalWordsRead => _totalWordsRead;
   int get streak => _streak;
+  bool get streakModeEnabled => _streakModeEnabled;
+  int get dailyWordsRead => _dailyWordsRead;
+  int get dailyGoalTier => _dailyGoalTier;
+  int? get pendingMilestone => _pendingMilestone;
+
+  // After the last fixed goal (5000), each tier adds another 5000.
+  static int _tierEnd(int tier) {
+    if (tier < _goals.length) return _goals[tier];
+    return 5000 * (tier - _goals.length + 2);
+  }
+
+  double get goalProgress {
+    final tierStart = _dailyGoalTier == 0 ? 0 : _tierEnd(_dailyGoalTier - 1);
+    final tierEnd = _tierEnd(_dailyGoalTier);
+    return ((_dailyWordsRead - tierStart) / (tierEnd - tierStart)).clamp(0.0, 1.0);
+  }
+
+  static int goalTierStart(int milestoneTarget) {
+    final idx = _goals.indexOf(milestoneTarget);
+    if (idx > 0) return _goals[idx - 1];
+    if (idx == 0) return 0;
+    return milestoneTarget - 5000;
+  }
 
   bool _loading = false;
   String? _error;
@@ -60,6 +90,12 @@ class AppState extends ChangeNotifier {
     _isFirstLaunch = await StorageService.isFirstLaunch();
     _totalWordsRead = await StorageService.loadTotalWordsRead();
     _streak = await StorageService.loadStreak();
+    _streakModeEnabled = await StorageService.loadStreakModeEnabled();
+    _dailyWordsRead = await StorageService.loadTodayWords();
+    _dailyGoalTier = await StorageService.loadGoalTierForToday();
+    while (_dailyWordsRead >= _tierEnd(_dailyGoalTier)) {
+      _dailyGoalTier++;
+    }
     notifyListeners();
   }
 
@@ -194,10 +230,20 @@ class AppState extends ChangeNotifier {
       if (!_isPlaying) return;
       _wordIndex++;
       _sessionWordsRead++;
+      _dailyWordsRead++;
       if (_wordIndex >= _words.length) {
         _isPlaying = false;
         _wordIndex = _words.length - 1;
         _saveProgress();
+        notifyListeners();
+        return;
+      }
+      if (_streakModeEnabled && _dailyWordsRead >= _tierEnd(_dailyGoalTier)) {
+        _pendingMilestone = _tierEnd(_dailyGoalTier);
+        _dailyGoalTier++;
+        StorageService.saveGoalTier(_dailyGoalTier);
+        _isPlaying = false;
+        _timer?.cancel();
         notifyListeners();
         return;
       }
@@ -259,6 +305,17 @@ class AppState extends ChangeNotifier {
   void setFontSize(double v) {
     _fontSize = v;
     StorageService.saveFontSize(v);
+    notifyListeners();
+  }
+
+  void setStreakModeEnabled(bool v) {
+    _streakModeEnabled = v;
+    StorageService.saveStreakModeEnabled(v);
+    notifyListeners();
+  }
+
+  void clearMilestone() {
+    _pendingMilestone = null;
     notifyListeners();
   }
 
