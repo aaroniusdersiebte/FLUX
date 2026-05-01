@@ -3,14 +3,26 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/storage_service.dart';
 import '../theme/terminal_theme.dart';
 
-class AnalyticsScreen extends StatefulWidget {
+class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
 
   @override
-  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('ANALYTICS')),
+      body: const AnalyticsBody(),
+    );
+  }
 }
 
-class _AnalyticsScreenState extends State<AnalyticsScreen> {
+class AnalyticsBody extends StatefulWidget {
+  const AnalyticsBody({super.key});
+
+  @override
+  State<AnalyticsBody> createState() => _AnalyticsBodyState();
+}
+
+class _AnalyticsBodyState extends State<AnalyticsBody> {
   Map<String, int> _dailyStats = {};
   int _streak = 0;
   bool _loading = true;
@@ -41,12 +53,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    return Scaffold(
-      appBar: AppBar(title: const Text('ANALYTICS')),
-      body: _loading
-          ? Center(child: CircularProgressIndicator(color: colors.amber, strokeWidth: 1.5))
-          : _buildBody(colors),
-    );
+    if (_loading) {
+      return Center(child: CircularProgressIndicator(color: colors.amber, strokeWidth: 1.5));
+    }
+    return _buildBody(colors);
   }
 
   Widget _buildBody(AppColors colors) {

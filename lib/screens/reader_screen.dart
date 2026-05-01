@@ -251,10 +251,11 @@ class _RsvpButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: colors.background,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-      child: SafeArea(
+    return SafeArea(
+      minimum: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        color: colors.background,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         child: SizedBox(
           width: double.infinity,
           child: OutlinedButton(

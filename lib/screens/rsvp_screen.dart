@@ -8,7 +8,6 @@ import '../services/app_state.dart';
 import '../services/rsvp_service.dart';
 import '../theme/terminal_theme.dart';
 import '../widgets/rsvp_display.dart';
-import '../widgets/scramble_text.dart';
 
 class RsvpScreen extends StatefulWidget {
   const RsvpScreen({super.key});
@@ -109,7 +108,6 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
     final v = details.velocity.pixelsPerSecond;
 
     if (v.dx.abs() > v.dy.abs()) {
-      // Horizontal — sentence navigation (works during pause too)
       if (v.dx < 0) {
         state.nextSentence();
       } else {
@@ -117,7 +115,6 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
       }
       if (!state.isPlaying) setState(() => _showPauseOverlay = true);
     } else {
-      // Vertical — WPM adjustment (blocked during pause, edge zones ignored)
       if (_showPauseOverlay || start == null) return;
       final rel = start.dy / _screenH;
       if (rel < 0.20 || rel > 0.80) return;
@@ -177,10 +174,6 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
                           total: words.length,
                           wpm: state.wpm,
                           eta: eta,
-                          milestoneAnim: _showMilestone ? _milestoneAnim : null,
-                          milestoneTarget: _milestoneTarget,
-                          milestoneTierStart: _milestoneTierStart,
-                          wpmFeedback: _wpmFeedback,
                         ),
                       ),
                     ),
@@ -224,6 +217,10 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
                 streakProgress: streakProgress,
                 isDecrypting: _isDecrypting,
                 onDecryptComplete: _onDecryptComplete,
+                wpmFeedback: _wpmFeedback,
+                milestoneAnim: _showMilestone ? _milestoneAnim : null,
+                milestoneTarget: _milestoneTarget,
+                milestoneTierStart: _milestoneTierStart,
               ),
             ),
           ),
@@ -272,6 +269,10 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
               streakProgress: streakProgress,
               isDecrypting: _isDecrypting,
               onDecryptComplete: _onDecryptComplete,
+              wpmFeedback: _wpmFeedback,
+              milestoneAnim: _showMilestone ? _milestoneAnim : null,
+              milestoneTarget: _milestoneTarget,
+              milestoneTierStart: _milestoneTierStart,
             ),
           ),
         ),
@@ -359,10 +360,6 @@ class _BottomBar extends StatelessWidget {
   final int total;
   final int wpm;
   final String eta;
-  final AnimationController? milestoneAnim;
-  final int milestoneTarget;
-  final int milestoneTierStart;
-  final int? wpmFeedback;
   final AppColors colors;
 
   const _BottomBar({
@@ -372,10 +369,6 @@ class _BottomBar extends StatelessWidget {
     required this.wpm,
     required this.eta,
     required this.colors,
-    this.milestoneAnim,
-    this.milestoneTarget = 0,
-    this.milestoneTierStart = 0,
-    this.wpmFeedback,
   });
 
   @override
@@ -395,32 +388,10 @@ class _BottomBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              SizedBox(
-                width: 72,
-                child: milestoneAnim != null
-                    ? _GoalBadge(
-                        anim: milestoneAnim!,
-                        target: milestoneTarget,
-                        tierStart: milestoneTierStart,
-                        colors: colors,
-                      )
-                    : wpmFeedback != null
-                        ? ScrambleText(
-                            key: ValueKey(wpmFeedback),
-                            text: '$wpmFeedback WPM',
-                            duration: const Duration(milliseconds: 280),
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.amber,
-                              fontSize: 10,
-                              letterSpacing: 1,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          )
-                        : Text('$idx / $total',
-                            textAlign: TextAlign.right,
-                            style: GoogleFonts.jetBrainsMono(
-                                color: colors.textMuted, fontSize: 10)),
-              ),
+              Text('$idx / $total',
+                  textAlign: TextAlign.right,
+                  style: GoogleFonts.jetBrainsMono(
+                      color: colors.textMuted, fontSize: 10)),
             ],
           ),
           const SizedBox(height: 6),
@@ -576,89 +547,6 @@ class _Chip extends StatelessWidget {
       child: Text(text,
           style: GoogleFonts.jetBrainsMono(
               color: colors.textMuted, fontSize: 9, letterSpacing: 1)),
-    );
-  }
-}
-
-class _GoalBadge extends StatefulWidget {
-  final AnimationController anim;
-  final int target;
-  final int tierStart;
-  final AppColors colors;
-
-  const _GoalBadge({
-    required this.anim,
-    required this.target,
-    required this.tierStart,
-    required this.colors,
-  });
-
-  @override
-  State<_GoalBadge> createState() => _GoalBadgeState();
-}
-
-class _GoalBadgeState extends State<_GoalBadge> {
-  bool _showGoal = false;
-  bool _fadingOut = false;
-  late Animation<int> _countAnim;
-  late Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _countAnim = IntTween(begin: widget.tierStart, end: widget.target).animate(
-      CurvedAnimation(
-          parent: widget.anim,
-          curve: const Interval(0.0, 0.43, curve: Curves.easeOut)),
-    );
-    _fadeAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-          parent: widget.anim,
-          curve: const Interval(0.71, 1.0, curve: Curves.easeIn)),
-    );
-    widget.anim.addListener(_onAnim);
-  }
-
-  void _onAnim() {
-    if (!mounted) return;
-    if (widget.anim.value >= 0.43 && !_showGoal) {
-      setState(() => _showGoal = true);
-    }
-    if (widget.anim.value >= 0.71 && !_fadingOut) {
-      setState(() => _fadingOut = true);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.anim.removeListener(_onAnim);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final style = GoogleFonts.jetBrainsMono(
-      color: widget.colors.amber,
-      fontSize: 10,
-      letterSpacing: 1.5,
-    );
-
-    if (_showGoal) {
-      return FadeTransition(
-        opacity: _fadeAnim,
-        child: ScrambleText(
-          key: ValueKey(_fadingOut ? 'badge_out' : 'badge_in'),
-          text: '★ GOAL',
-          reverse: _fadingOut,
-          duration: const Duration(milliseconds: 350),
-          style: style,
-        ),
-      );
-    }
-
-    return AnimatedBuilder(
-      animation: _countAnim,
-      builder: (context, child) => Text('${_countAnim.value}', style: style),
     );
   }
 }

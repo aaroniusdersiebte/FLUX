@@ -12,101 +12,110 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<AppColors>()!;
     return Scaffold(
       appBar: AppBar(title: const Text('SETTINGS')),
-      body: Consumer<AppState>(
-        builder: (ctx, state, _) {
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-            children: [
-              _SectionLabel('SPEED', colors),
-              const SizedBox(height: 12),
-              AmberSlider(
-                label: 'WPM',
-                value: state.wpm.toDouble(),
-                min: 100,
-                max: 1000,
-                divisions: 90,
-                valueLabel: (v) => '${v.round()} wpm',
-                onChanged: (v) => state.setWpm(v.round()),
+      body: const SettingsBody(),
+    );
+  }
+}
+
+class SettingsBody extends StatelessWidget {
+  const SettingsBody({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColors>()!;
+    return Consumer<AppState>(
+      builder: (ctx, state, _) {
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+          children: [
+            _SectionLabel('SPEED', colors),
+            const SizedBox(height: 12),
+            AmberSlider(
+              label: 'WPM',
+              value: state.wpm.toDouble(),
+              min: 100,
+              max: 1000,
+              divisions: 90,
+              valueLabel: (v) => '${v.round()} wpm',
+              onChanged: (v) => state.setWpm(v.round()),
+            ),
+            const SizedBox(height: 16),
+            _Toggle(
+              label: 'ADAPTIVE PAUSE',
+              subtitle: 'Extra delay: long words & punctuation',
+              value: state.adaptivePause,
+              onChanged: state.setAdaptivePause,
+              colors: colors,
+            ),
+            _divider(colors),
+            _SectionLabel('DISPLAY', colors),
+            const SizedBox(height: 12),
+            AmberSlider(
+              label: 'FONT SIZE',
+              value: state.fontSize,
+              min: 18,
+              max: 56,
+              divisions: 38,
+              valueLabel: (v) => '${v.round()} px',
+              onChanged: state.setFontSize,
+            ),
+            const SizedBox(height: 16),
+            _Toggle(
+              label: 'CONTEXT WORDS',
+              subtitle: 'Show prev / next word at 30% opacity',
+              value: state.showContext,
+              onChanged: state.setShowContext,
+              colors: colors,
+            ),
+            const SizedBox(height: 16),
+            _Toggle(
+              label: 'LIGHT MODE',
+              subtitle: 'Helles Erscheinungsbild (Standard: dunkel)',
+              value: !state.isDarkMode,
+              onChanged: (v) => state.setDarkMode(!v),
+              colors: colors,
+            ),
+            _divider(colors),
+            _SectionLabel('PREVIEW', colors),
+            const SizedBox(height: 16),
+            _RsvpPreview(state: state, colors: colors),
+            _divider(colors),
+            _SectionLabel('GOALS', colors),
+            const SizedBox(height: 12),
+            _Toggle(
+              label: 'STREAK MODE',
+              subtitle: 'Tägliche Wortziele: 500 → 1000 → 1500 → 2000 → 3000',
+              value: state.streakModeEnabled,
+              onChanged: state.setStreakModeEnabled,
+              colors: colors,
+            ),
+            const SizedBox(height: 16),
+            _Toggle(
+              label: 'VIBRATION',
+              subtitle: 'Vibriert beim Pausieren / Start und bei Tageszielen',
+              value: state.vibrationEnabled,
+              onChanged: state.setVibrationEnabled,
+              colors: colors,
+            ),
+            _divider(colors),
+            _SectionLabel('ABOUT', colors),
+            const SizedBox(height: 8),
+            Text(
+              'FLUX  v1.0\n'
+              'RSVP Speed Reading\n'
+              'Terminal Edition',
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textMuted,
+                fontSize: 11,
+                height: 2.0,
+                letterSpacing: 0.5,
               ),
-              const SizedBox(height: 16),
-              _Toggle(
-                label: 'ADAPTIVE PAUSE',
-                subtitle: 'Extra delay: long words & punctuation',
-                value: state.adaptivePause,
-                onChanged: state.setAdaptivePause,
-                colors: colors,
-              ),
-              _divider(colors),
-              _SectionLabel('DISPLAY', colors),
-              const SizedBox(height: 12),
-              AmberSlider(
-                label: 'FONT SIZE',
-                value: state.fontSize,
-                min: 18,
-                max: 56,
-                divisions: 38,
-                valueLabel: (v) => '${v.round()} px',
-                onChanged: state.setFontSize,
-              ),
-              const SizedBox(height: 16),
-              _Toggle(
-                label: 'CONTEXT WORDS',
-                subtitle: 'Show prev / next word at 30% opacity',
-                value: state.showContext,
-                onChanged: state.setShowContext,
-                colors: colors,
-              ),
-              const SizedBox(height: 16),
-              _Toggle(
-                label: 'LIGHT MODE',
-                subtitle: 'Helles Erscheinungsbild (Standard: dunkel)',
-                value: !state.isDarkMode,
-                onChanged: (v) => state.setDarkMode(!v),
-                colors: colors,
-              ),
-              _divider(colors),
-              _SectionLabel('PREVIEW', colors),
-              const SizedBox(height: 16),
-              _RsvpPreview(state: state, colors: colors),
-              _divider(colors),
-              _SectionLabel('GOALS', colors),
-              const SizedBox(height: 12),
-              _Toggle(
-                label: 'STREAK MODE',
-                subtitle: 'Tägliche Wortziele: 500 → 1000 → 1500 → 2000 → 3000',
-                value: state.streakModeEnabled,
-                onChanged: state.setStreakModeEnabled,
-                colors: colors,
-              ),
-              const SizedBox(height: 16),
-              _Toggle(
-                label: 'VIBRATION',
-                subtitle: 'Vibriert beim Pausieren / Start und bei Tageszielen',
-                value: state.vibrationEnabled,
-                onChanged: state.setVibrationEnabled,
-                colors: colors,
-              ),
-              _divider(colors),
-              _SectionLabel('ABOUT', colors),
-              const SizedBox(height: 8),
-              Text(
-                'FLUX  v1.0\n'
-                'RSVP Speed Reading\n'
-                'Terminal Edition',
-                style: GoogleFonts.jetBrainsMono(
-                  color: colors.textMuted,
-                  fontSize: 11,
-                  height: 2.0,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 

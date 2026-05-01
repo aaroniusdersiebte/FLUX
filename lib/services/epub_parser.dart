@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:epubx/epubx.dart';
+import '../models/book.dart';
 import 'rsvp_service.dart';
 
 class EpubParser {
-  static Future<({List<String> words, String title, String author})> parse(
+  static Future<({List<String> words, String title, String author, List<BookChapter> chapters})> parse(
       String filePath) async {
     final bytes = await File(filePath).readAsBytes();
     final book = await EpubReader.readBook(bytes);
@@ -13,19 +14,25 @@ class EpubParser {
 
     final buffer = StringBuffer();
     final seen = <String>{};
+    final chapters = <BookChapter>[];
+    final wordOffsetRef = [0]; // mutable word count via single-element list
+
     for (final chapter in book.Chapters ?? <EpubChapter>[]) {
-      _extractChapterText(chapter, buffer, seen);
+      _extractChapterText(chapter, buffer, seen, chapters, wordOffsetRef);
     }
 
     final words = RsvpService.splitIntoWords(buffer.toString());
-    return (words: words, title: title, author: author);
+    return (words: words, title: title, author: author, chapters: chapters);
   }
 
   static void _extractChapterText(
-      EpubChapter chapter, StringBuffer buf, Set<String> seen) {
+    EpubChapter chapter,
+    StringBuffer buf,
+    Set<String> seen,
+    List<BookChapter> chapters,
+    List<int> wordOffsetRef,
+  ) {
     final fileName = chapter.ContentFileName ?? '';
-    // Only extract content from each HTML file once — sub-chapters often point
-    // to anchors within the same file, causing the content to be duplicated.
     final alreadySeen = fileName.isNotEmpty && !seen.add(fileName);
     if (!alreadySeen) {
       final content = chapter.HtmlContent ?? '';
@@ -40,12 +47,17 @@ class EpubParser {
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
       if (stripped.isNotEmpty) {
+        final chapterName = (chapter.Title ?? '').trim();
+        if (chapterName.isNotEmpty) {
+          chapters.add(BookChapter(name: chapterName, wordIndex: wordOffsetRef[0]));
+        }
+        wordOffsetRef[0] += RsvpService.splitIntoWords(stripped).length;
         buf.write(stripped);
         buf.write(' ');
       }
     }
     for (final sub in chapter.SubChapters ?? <EpubChapter>[]) {
-      _extractChapterText(sub, buf, seen);
+      _extractChapterText(sub, buf, seen, chapters, wordOffsetRef);
     }
   }
 }

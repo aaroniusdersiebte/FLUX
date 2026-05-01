@@ -61,7 +61,6 @@ class AppState extends ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
   bool get vibrationEnabled => _vibrationEnabled;
 
-  // After the last fixed goal (5000), each tier adds another 5000.
   static int _tierEnd(int tier) {
     if (tier < _goals.length) return _goals[tier];
     return 5000 * (tier - _goals.length + 2);
@@ -132,12 +131,14 @@ class AppState extends ChangeNotifier {
       List<String> words;
       String title;
       String author;
+      List<BookChapter> chapters = [];
 
       if (ext == 'epub') {
         final result = await EpubParser.parse(destPath);
         words = result.words;
         title = result.title;
         author = result.author;
+        chapters = result.chapters;
       } else if (ext == 'pdf') {
         words = await PdfParser.parse(destPath);
         title = sourcePath.split('/').last.replaceAll('.pdf', '');
@@ -157,6 +158,7 @@ class AppState extends ChangeNotifier {
         totalWords: words.length,
         wordIndex: 0,
         importedAt: DateTime.now(),
+        chapters: chapters,
       );
 
       _books.add(book);
@@ -198,6 +200,11 @@ class AppState extends ChangeNotifier {
       _activeBook = book.copyWith(wordIndex: savedIndex);
       _words = words;
       _wordIndex = savedIndex.clamp(0, words.length - 1);
+
+      // Sync _books so the library card shows correct progress immediately
+      final idx = _books.indexWhere((b) => b.id == book.id);
+      if (idx >= 0) _books[idx] = _books[idx].copyWith(wordIndex: _wordIndex);
+
       return words;
     } finally {
       _loading = false;
@@ -321,6 +328,32 @@ class AppState extends ChangeNotifier {
       await StorageService.saveBooks(_books);
     }
     await StorageService.saveProgress(_activeBook!.id, _wordIndex);
+  }
+
+  // ─── Book management ───────────────────────────────────────────────────────
+
+  Future<void> updateBookMetadata(Book book, String title, String author) async {
+    final idx = _books.indexWhere((b) => b.id == book.id);
+    if (idx < 0) return;
+    _books[idx] = _books[idx].copyWith(title: title.trim(), author: author.trim());
+    if (_activeBook?.id == book.id) {
+      _activeBook = _activeBook!.copyWith(title: title.trim(), author: author.trim());
+    }
+    await StorageService.saveBooks(_books);
+    notifyListeners();
+  }
+
+  Future<void> resetBook(Book book) async {
+    final idx = _books.indexWhere((b) => b.id == book.id);
+    if (idx < 0) return;
+    _books[idx] = _books[idx].copyWith(wordIndex: 0);
+    if (_activeBook?.id == book.id) {
+      _activeBook = _activeBook!.copyWith(wordIndex: 0);
+      _wordIndex = 0;
+    }
+    await StorageService.saveBooks(_books);
+    await StorageService.saveProgress(book.id, 0);
+    notifyListeners();
   }
 
   // ─── Settings setters ──────────────────────────────────────────────────────

@@ -65,6 +65,10 @@ class RsvpDisplay extends StatelessWidget {
   final double? streakProgress;
   final bool isDecrypting;
   final VoidCallback? onDecryptComplete;
+  final int? wpmFeedback;
+  final AnimationController? milestoneAnim;
+  final int milestoneTarget;
+  final int milestoneTierStart;
 
   const RsvpDisplay({
     super.key,
@@ -75,6 +79,10 @@ class RsvpDisplay extends StatelessWidget {
     this.streakProgress,
     this.isDecrypting = false,
     this.onDecryptComplete,
+    this.wpmFeedback,
+    this.milestoneAnim,
+    this.milestoneTarget = 0,
+    this.milestoneTierStart = 0,
   });
 
   @override
@@ -105,7 +113,7 @@ class RsvpDisplay extends StatelessWidget {
                   child: _buildRow(colors, token, prev, next, ctxW, ctxGap, wordAreaW),
                 ),
                 const SizedBox(height: 6),
-                _buildFocalLine(colors, ctxW, ctxGap, wordAreaW, maxDisplayW),
+                _buildFocalLine(context, colors, ctxW, ctxGap, wordAreaW, maxDisplayW),
               ],
             ),
           ),
@@ -247,14 +255,39 @@ class RsvpDisplay extends StatelessWidget {
   }
 
   Widget _buildFocalLine(
-      AppColors colors, double ctxW, double ctxGap, double wordAreaW, double displayW) {
+      BuildContext context, AppColors colors, double ctxW, double ctxGap, double wordAreaW, double displayW) {
     final wordAreaLeft = ctxW + ctxGap;
     final focalX = wordAreaLeft + wordAreaW * 0.40;
+
+    final hasBadge = wpmFeedback != null || milestoneAnim != null;
+    final areaH = streakProgress != null ? 22.0 : (hasBadge ? 22.0 : 8.0);
+
+    Widget? badgeWidget;
+    if (milestoneAnim != null) {
+      badgeWidget = GoalBadge(
+        anim: milestoneAnim!,
+        target: milestoneTarget,
+        tierStart: milestoneTierStart,
+        colors: colors,
+      );
+    } else if (wpmFeedback != null) {
+      badgeWidget = ScrambleText(
+        key: ValueKey(wpmFeedback),
+        text: '$wpmFeedback WPM',
+        duration: const Duration(milliseconds: 280),
+        style: GoogleFonts.jetBrainsMono(
+          color: colors.amber,
+          fontSize: 10,
+          letterSpacing: 1,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+    }
 
     if (streakProgress != null) {
       return SizedBox(
         width: displayW,
-        height: 22,
+        height: areaH,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -267,6 +300,12 @@ class RsvpDisplay extends StatelessWidget {
                 painter: _FocalRingPainter(streakProgress!, colors),
               ),
             ),
+            if (badgeWidget != null)
+              Positioned(
+                left: focalX + 14,
+                top: 4,
+                child: badgeWidget,
+              ),
           ],
         ),
       );
@@ -274,7 +313,7 @@ class RsvpDisplay extends StatelessWidget {
 
     return SizedBox(
       width: displayW,
-      height: 8,
+      height: areaH,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -285,8 +324,100 @@ class RsvpDisplay extends StatelessWidget {
             height: 8,
             child: Container(color: colors.amber),
           ),
+          if (badgeWidget != null)
+            Positioned(
+              left: focalX + 10,
+              top: 0,
+              child: badgeWidget,
+            ),
         ],
       ),
+    );
+  }
+}
+
+// ─── GoalBadge ────────────────────────────────────────────────────────────────
+
+class GoalBadge extends StatefulWidget {
+  final AnimationController anim;
+  final int target;
+  final int tierStart;
+  final AppColors colors;
+
+  const GoalBadge({
+    super.key,
+    required this.anim,
+    required this.target,
+    required this.tierStart,
+    required this.colors,
+  });
+
+  @override
+  State<GoalBadge> createState() => _GoalBadgeState();
+}
+
+class _GoalBadgeState extends State<GoalBadge> {
+  bool _showGoal = false;
+  bool _fadingOut = false;
+  late Animation<int> _countAnim;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _countAnim = IntTween(begin: widget.tierStart, end: widget.target).animate(
+      CurvedAnimation(
+          parent: widget.anim,
+          curve: const Interval(0.0, 0.43, curve: Curves.easeOut)),
+    );
+    _fadeAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+          parent: widget.anim,
+          curve: const Interval(0.71, 1.0, curve: Curves.easeIn)),
+    );
+    widget.anim.addListener(_onAnim);
+  }
+
+  void _onAnim() {
+    if (!mounted) return;
+    if (widget.anim.value >= 0.43 && !_showGoal) {
+      setState(() => _showGoal = true);
+    }
+    if (widget.anim.value >= 0.71 && !_fadingOut) {
+      setState(() => _fadingOut = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.anim.removeListener(_onAnim);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = GoogleFonts.jetBrainsMono(
+      color: widget.colors.amber,
+      fontSize: 10,
+      letterSpacing: 1.5,
+    );
+
+    if (_showGoal) {
+      return FadeTransition(
+        opacity: _fadeAnim,
+        child: ScrambleText(
+          key: ValueKey(_fadingOut ? 'badge_out' : 'badge_in'),
+          text: '★ GOAL',
+          reverse: _fadingOut,
+          duration: const Duration(milliseconds: 350),
+          style: style,
+        ),
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _countAnim,
+      builder: (context, child) => Text('${_countAnim.value}', style: style),
     );
   }
 }
