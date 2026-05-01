@@ -253,7 +253,7 @@ class _RsvpButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: colors.background,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
       child: SafeArea(
         child: SizedBox(
           width: double.infinity,
@@ -266,7 +266,7 @@ class _RsvpButton extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(
-              '▶  RSVP MODE',
+              '▶  READ',
               style: GoogleFonts.jetBrainsMono(
                   color: colors.amber,
                   fontSize: 12,

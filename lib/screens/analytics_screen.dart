@@ -52,6 +52,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Widget _buildBody(AppColors colors) {
     final days = _last7;
     final total = _totalWords;
+    final maxCount = days.map((d) => d.count).fold(0, (a, b) => a > b ? a : b);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
@@ -73,7 +74,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             style: GoogleFonts.jetBrainsMono(
                 color: colors.amber, fontSize: 10, letterSpacing: 3.5, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
-        ...days.reversed.where((d) => d.count > 0).map((d) => _DayRow(stat: d, colors: colors)),
+        ...days.reversed.where((d) => d.count > 0).map((d) => _DayRow(stat: d, maxCount: maxCount, colors: colors)),
         if (days.every((d) => d.count == 0))
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -241,8 +242,9 @@ class _BarChartPainter extends CustomPainter {
 
 class _DayRow extends StatelessWidget {
   final _DayStat stat;
+  final int maxCount;
   final AppColors colors;
-  const _DayRow({required this.stat, required this.colors});
+  const _DayRow({required this.stat, required this.maxCount, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +261,7 @@ class _DayRow extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             child: LinearProgressIndicator(
-              value: stat.count > 0 ? 1.0 : 0.0,
+              value: maxCount > 0 ? stat.count / maxCount : 0.0,
               backgroundColor: colors.border,
               valueColor: AlwaysStoppedAnimation<Color>(colors.amberDim),
               minHeight: 1,

@@ -109,6 +109,17 @@ class AppState extends ChangeNotifier {
 
   // ─── Import ────────────────────────────────────────────────────────────────
 
+  Future<List<String>> _parseBook(Book book) async {
+    if (book.format == 'epub') {
+      final result = await EpubParser.parse(book.filePath);
+      return result.words;
+    } else if (book.format == 'pdf') {
+      return PdfParser.parse(book.filePath);
+    } else {
+      return TxtParser.parse(book.filePath);
+    }
+  }
+
   Future<void> importBook(String sourcePath) async {
     _loading = true;
     _error = null;
@@ -150,6 +161,7 @@ class AppState extends ChangeNotifier {
 
       _books.add(book);
       await StorageService.saveBooks(_books);
+      await StorageService.saveWordCache(book.id, words);
     } catch (e) {
       _error = 'Import fehlgeschlagen: $e';
     } finally {
@@ -162,6 +174,7 @@ class AppState extends ChangeNotifier {
     _books.removeWhere((b) => b.id == book.id);
     await StorageService.saveBooks(_books);
     await StorageService.deleteBookFile(book.filePath);
+    await StorageService.deleteWordCache(book.id);
     notifyListeners();
   }
 
@@ -172,15 +185,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final ext = book.format;
+      List<String>? cached = await StorageService.loadWordCache(book.id);
       List<String> words;
-      if (ext == 'epub') {
-        final result = await EpubParser.parse(book.filePath);
-        words = result.words;
-      } else if (ext == 'pdf') {
-        words = await PdfParser.parse(book.filePath);
+      if (cached != null) {
+        words = cached;
       } else {
-        words = await TxtParser.parse(book.filePath);
+        words = await _parseBook(book);
+        await StorageService.saveWordCache(book.id, words);
       }
 
       final savedIndex = await StorageService.loadProgress(book.id);

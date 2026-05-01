@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../services/app_state.dart';
 import '../services/rsvp_service.dart';
 import '../theme/terminal_theme.dart';
@@ -38,6 +39,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
       vsync: this,
     );
     _appState.addListener(_checkMilestone);
+    WakelockPlus.enable();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startPlayWithAnimation();
@@ -55,6 +57,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
     _appState.removeListener(_checkMilestone);
     _milestoneAnim.dispose();
     _wpmFeedbackTimer?.cancel();
+    WakelockPlus.disable();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -144,6 +147,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
         final idx = state.wordIndex;
         final progress = words.isNotEmpty ? idx / words.length : 0.0;
         final streakProgress = state.streakModeEnabled ? state.goalProgress : null;
+        final eta = _formatEta(words.length - idx, state.wpm);
 
         return Scaffold(
           backgroundColor: colors.background,
@@ -172,6 +176,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
                           idx: idx,
                           total: words.length,
                           wpm: state.wpm,
+                          eta: eta,
                           milestoneAnim: _showMilestone ? _milestoneAnim : null,
                           milestoneTarget: _milestoneTarget,
                           milestoneTierStart: _milestoneTierStart,
@@ -186,6 +191,13 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
         );
       },
     );
+  }
+
+  String _formatEta(int remaining, int wpm) {
+    if (wpm <= 0 || remaining <= 0) return '';
+    final minutes = (remaining / wpm).ceil();
+    if (minutes >= 60) return '${minutes ~/ 60}h ${minutes % 60}m';
+    return '$minutes min';
   }
 
   void _onDecryptComplete() {
@@ -346,6 +358,7 @@ class _BottomBar extends StatelessWidget {
   final int idx;
   final int total;
   final int wpm;
+  final String eta;
   final AnimationController? milestoneAnim;
   final int milestoneTarget;
   final int milestoneTierStart;
@@ -357,6 +370,7 @@ class _BottomBar extends StatelessWidget {
     required this.idx,
     required this.total,
     required this.wpm,
+    required this.eta,
     required this.colors,
     this.milestoneAnim,
     this.milestoneTarget = 0,
@@ -410,7 +424,8 @@ class _BottomBar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text('$wpm WPM',
+          Text(
+              eta.isEmpty ? '$wpm WPM' : '$wpm WPM  ·  $eta',
               style: GoogleFonts.jetBrainsMono(
                   color: colors.textMuted,
                   fontSize: 11,

@@ -60,6 +60,30 @@ class StorageService {
     if (f.existsSync()) await f.delete();
   }
 
+  // ─── Word Cache ────────────────────────────────────────────────────────────
+
+  static Future<void> saveWordCache(String bookId, List<String> words) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/cache/$bookId.words');
+    await file.parent.create(recursive: true);
+    await file.writeAsString(words.join('\n'));
+  }
+
+  static Future<List<String>?> loadWordCache(String bookId) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/cache/$bookId.words');
+    if (!await file.exists()) return null;
+    final text = await file.readAsString();
+    if (text.isEmpty) return null;
+    return text.split('\n');
+  }
+
+  static Future<void> deleteWordCache(String bookId) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/cache/$bookId.words');
+    if (await file.exists()) await file.delete();
+  }
+
   // ─── Settings ──────────────────────────────────────────────────────────────
 
   static Future<int> loadWpm() async {
