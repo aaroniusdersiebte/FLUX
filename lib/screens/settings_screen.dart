@@ -12,6 +12,7 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColors>()!;
     return Scaffold(
       appBar: AppBar(title: const Text('SETTINGS')),
       body: Consumer<AppState>(
@@ -19,7 +20,7 @@ class SettingsScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
             children: [
-              _SectionLabel('SPEED'),
+              _SectionLabel('SPEED', colors),
               const SizedBox(height: 12),
               AmberSlider(
                 label: 'WPM',
@@ -36,9 +37,10 @@ class SettingsScreen extends StatelessWidget {
                 subtitle: 'Extra delay: long words & punctuation',
                 value: state.adaptivePause,
                 onChanged: state.setAdaptivePause,
+                colors: colors,
               ),
-              _divider(),
-              _SectionLabel('DISPLAY'),
+              _divider(colors),
+              _SectionLabel('DISPLAY', colors),
               const SizedBox(height: 12),
               AmberSlider(
                 label: 'FONT SIZE',
@@ -55,29 +57,47 @@ class SettingsScreen extends StatelessWidget {
                 subtitle: 'Show prev / next word at 30% opacity',
                 value: state.showContext,
                 onChanged: state.setShowContext,
+                colors: colors,
               ),
-              _divider(),
-              _SectionLabel('PREVIEW'),
               const SizedBox(height: 16),
-              _RsvpPreview(state: state),
-              _divider(),
-              _SectionLabel('GOALS'),
+              _Toggle(
+                label: 'LIGHT MODE',
+                subtitle: 'Helles Erscheinungsbild (Standard: dunkel)',
+                value: !state.isDarkMode,
+                onChanged: (v) => state.setDarkMode(!v),
+                colors: colors,
+              ),
+              _divider(colors),
+              _SectionLabel('PREVIEW', colors),
+              const SizedBox(height: 16),
+              _RsvpPreview(state: state, colors: colors),
+              _divider(colors),
+              _SectionLabel('GOALS', colors),
               const SizedBox(height: 12),
               _Toggle(
                 label: 'STREAK MODE',
                 subtitle: 'Tägliche Wortziele: 500 → 1000 → 1500 → 2000 → 3000',
                 value: state.streakModeEnabled,
                 onChanged: state.setStreakModeEnabled,
+                colors: colors,
               ),
-              _divider(),
-              _SectionLabel('ABOUT'),
+              const SizedBox(height: 16),
+              _Toggle(
+                label: 'VIBRATION',
+                subtitle: 'Vibriert beim Pausieren / Start und bei Tageszielen',
+                value: state.vibrationEnabled,
+                onChanged: state.setVibrationEnabled,
+                colors: colors,
+              ),
+              _divider(colors),
+              _SectionLabel('ABOUT', colors),
               const SizedBox(height: 8),
               Text(
                 'FLUX  v1.0\n'
                 'RSVP Speed Reading\n'
                 'Terminal Edition',
                 style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textMuted,
+                  color: colors.textMuted,
                   fontSize: 11,
                   height: 2.0,
                   letterSpacing: 0.5,
@@ -90,10 +110,10 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _divider() => Padding(
+  Widget _divider(AppColors colors) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 20),
         child: Divider(
-          color: TerminalColors.border,
+          color: colors.border,
           height: 1,
           thickness: 1,
         ),
@@ -102,14 +122,15 @@ class SettingsScreen extends StatelessWidget {
 
 class _SectionLabel extends StatelessWidget {
   final String text;
-  const _SectionLabel(this.text);
+  final AppColors colors;
+  const _SectionLabel(this.text, this.colors);
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
       style: GoogleFonts.jetBrainsMono(
-        color: TerminalColors.amber,
+        color: colors.amber,
         fontSize: 10,
         letterSpacing: 3.5,
         fontWeight: FontWeight.w700,
@@ -123,12 +144,14 @@ class _Toggle extends StatelessWidget {
   final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final AppColors colors;
 
   const _Toggle({
     required this.label,
     required this.subtitle,
     required this.value,
     required this.onChanged,
+    required this.colors,
   });
 
   @override
@@ -142,7 +165,7 @@ class _Toggle extends StatelessWidget {
               Text(
                 label,
                 style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textPrimary,
+                  color: colors.textPrimary,
                   fontSize: 13,
                   letterSpacing: 1.0,
                   fontWeight: FontWeight.w600,
@@ -152,7 +175,7 @@ class _Toggle extends StatelessWidget {
               Text(
                 subtitle,
                 style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textMuted,
+                  color: colors.textMuted,
                   fontSize: 10,
                 ),
               ),
@@ -167,7 +190,8 @@ class _Toggle extends StatelessWidget {
 
 class _RsvpPreview extends StatefulWidget {
   final AppState state;
-  const _RsvpPreview({required this.state});
+  final AppColors colors;
+  const _RsvpPreview({required this.state, required this.colors});
 
   @override
   State<_RsvpPreview> createState() => _RsvpPreviewState();
@@ -183,7 +207,7 @@ class _RsvpPreviewState extends State<_RsvpPreview> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 0),
       decoration: BoxDecoration(
-        border: Border.all(color: TerminalColors.border),
+        border: Border.all(color: widget.colors.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -201,7 +225,7 @@ class _RsvpPreviewState extends State<_RsvpPreview> {
               Text(
                 '← tap to cycle →   ${token.word.toUpperCase()}',
                 style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textMuted,
+                  color: widget.colors.textMuted,
                   fontSize: 10,
                   letterSpacing: 1.5,
                 ),
@@ -216,6 +240,5 @@ class _RsvpPreviewState extends State<_RsvpPreview> {
   @override
   void didUpdateWidget(_RsvpPreview old) {
     super.didUpdateWidget(old);
-    // Rebuild happens automatically via Consumer
   }
 }

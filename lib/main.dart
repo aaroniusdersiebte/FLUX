@@ -13,11 +13,6 @@ void main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: TerminalColors.background,
-  ));
 
   final appState = AppState();
   await appState.init();
@@ -35,13 +30,23 @@ class FluxApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FLUX',
-      debugShowCheckedModeBanner: false,
-      theme: TerminalTheme.build(),
-      // Register the RouteObserver so ReaderScreen gets didPopNext callbacks
-      navigatorObservers: [ReaderScreen.routeObserver],
-      home: const LibraryScreen(),
+    return Consumer<AppState>(
+      builder: (context, state, _) {
+        final colors = state.isDarkMode ? AppColors.dark : AppColors.light;
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness:
+              state.isDarkMode ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: colors.background,
+        ));
+        return MaterialApp(
+          title: 'FLUX',
+          debugShowCheckedModeBanner: false,
+          theme: TerminalTheme.build(colors),
+          navigatorObservers: [ReaderScreen.routeObserver],
+          home: const LibraryScreen(),
+        );
+      },
     );
   }
 }

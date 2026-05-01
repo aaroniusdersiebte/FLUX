@@ -24,6 +24,7 @@ class AmberSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColors>()!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -33,7 +34,7 @@ class AmberSlider extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.jetBrainsMono(
-                color: TerminalColors.textMuted,
+                color: colors.textMuted,
                 fontSize: 11,
                 letterSpacing: 2.0,
               ),
@@ -41,7 +42,7 @@ class AmberSlider extends StatelessWidget {
             Text(
               valueLabel(value),
               style: GoogleFonts.jetBrainsMono(
-                color: TerminalColors.amber,
+                color: colors.amber,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,

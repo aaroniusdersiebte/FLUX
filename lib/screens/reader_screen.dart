@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/app_state.dart';
 import '../theme/terminal_theme.dart';
 import 'rsvp_screen.dart';
 
-// Top-level route observer — registered in main.dart so didPopNext fires
-// when the user navigates back from RsvpScreen to ReaderScreen.
 final readerRouteObserver = RouteObserver<ModalRoute<void>>();
 
 class ReaderScreen extends StatefulWidget {
@@ -21,8 +20,7 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
   final ScrollController _scrollController = ScrollController();
-  static const int _pageSize = 600;
-  static const int _tapRadius = 200;
+  static const int _pageSize = 400;
 
   int _windowStart = 0;
   int _windowEnd = 0;
@@ -30,6 +28,10 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
   bool _pendingScroll = false;
 
   final GlobalKey _highlightKey = GlobalKey();
+  final GlobalKey _richTextKey = GlobalKey();
+
+  // (charStart, charEnd, wordIndex) — rebuilt in _buildText, used for tap lookup
+  final List<(int, int, int)> _wordOffsets = [];
 
   @override
   void initState() {
@@ -44,7 +46,6 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Subscribe to route observer so didPopNext fires when returning from RSVP
     final route = ModalRoute.of(context);
     if (route != null) readerRouteObserver.subscribe(this, route);
   }
@@ -56,7 +57,6 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
     super.dispose();
   }
 
-  /// Called when RSVP screen is popped and this screen comes back into focus.
   @override
   void didPopNext() {
     final state = context.read<AppState>();
@@ -81,8 +81,7 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
     final ctx = _highlightKey.currentContext;
     if (ctx == null) return;
     if (jump) {
-      Scrollable.ensureVisible(ctx,
-          duration: Duration.zero, alignment: 0.28);
+      Scrollable.ensureVisible(ctx, duration: Duration.zero, alignment: 0.28);
     } else {
       Scrollable.ensureVisible(ctx,
           duration: const Duration(milliseconds: 400),
@@ -105,19 +104,33 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
     );
   }
 
+  void _handleTextTap(TapUpDetails details, AppState state) {
+    final obj = _richTextKey.currentContext?.findRenderObject();
+    if (obj == null) return;
+    final para = obj as RenderParagraph;
+    final localPos = para.globalToLocal(details.globalPosition);
+    final charOffset = para.getPositionForOffset(localPos).offset;
+    for (final (start, end, wordIdx) in _wordOffsets) {
+      if (charOffset >= start && charOffset < end) {
+        _onWordTap(state, wordIdx);
+        return;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppState>(
-      builder: (ctx, state, _) {
-        final words = state.words;
-        final wordIdx = state.wordIndex;
-        final book = state.activeBook;
+    // Selector: only rebuild when wordIndex, words, or activeBook changes.
+    // Ignores unrelated AppState changes (streak, totalWords, etc.).
+    return Selector<AppState, (int, List<String>, dynamic)>(
+      selector: (_, s) => (s.wordIndex, s.words, s.activeBook),
+      builder: (ctx, data, _) {
+        final (wordIdx, words, book) = data;
+        final colors = Theme.of(context).extension<AppColors>()!;
         final pct = words.isNotEmpty
             ? (wordIdx / words.length * 100).toStringAsFixed(0)
             : '0';
 
-        // If word changed while not playing (e.g., after seeking via RSVP)
-        // and a scroll is pending, trigger it after render.
         if (_pendingScroll) {
           WidgetsBinding.instance
               .addPostFrameCallback((_) => _scrollToHighlight(jump: false));
@@ -133,7 +146,7 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
                   child: Text(
                     '$pct%',
                     style: GoogleFonts.jetBrainsMono(
-                        color: TerminalColors.textMuted, fontSize: 11),
+                        color: colors.textMuted, fontSize: 11),
                   ),
                 ),
               ),
@@ -154,64 +167,76 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
             child: SingleChildScrollView(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
-              child: _buildText(words, wordIdx),
+              child: _buildText(colors, words, wordIdx,
+                  context.read<AppState>()),
             ),
           ),
           bottomSheet: _RsvpButton(
-            onTap: () => _onWordTap(state, wordIdx),
+            colors: colors,
+            onTap: () => _onWordTap(context.read<AppState>(), wordIdx),
           ),
         );
       },
     );
   }
 
-  Widget _buildText(List<String> words, int wordIdx) {
+  Widget _buildText(
+      AppColors colors, List<String> words, int wordIdx, AppState state) {
     if (words.isEmpty) return const SizedBox.shrink();
 
     final start = _windowStart;
     final end = _windowEnd.clamp(0, words.length);
-    final tapStart = (wordIdx - _tapRadius).clamp(start, end);
-    final tapEnd = (wordIdx + _tapRadius).clamp(start, end);
+
+    _wordOffsets.clear();
+    int charOffset = 0;
 
     final base = GoogleFonts.jetBrainsMono(
-        color: TerminalColors.textPrimary, fontSize: 14, height: 1.75);
+        color: colors.textPrimary, fontSize: 14, height: 1.75);
+    final mutedStyle = base.copyWith(color: colors.textMuted);
 
-    return RichText(
-      text: TextSpan(
-        style: base,
-        children: [
-          if (start > 0)
-            TextSpan(
-                text: '… ',
-                style: base.copyWith(color: TerminalColors.textMuted)),
+    final children = <InlineSpan>[];
 
-          // Plain text before tappable zone
-          if (tapStart > start)
-            TextSpan(
-                text: '${words.sublist(start, tapStart).join(' ')} '),
+    if (start > 0) {
+      children.add(TextSpan(text: '… ', style: mutedStyle));
+      charOffset += 2;
+    }
 
-          // Tappable zone (±tapRadius around current word)
-          for (int i = tapStart; i < tapEnd; i++)
-            WidgetSpan(
-              alignment: PlaceholderAlignment.baseline,
-              baseline: TextBaseline.alphabetic,
-              child: _TappableWord(
-                word: words[i],
-                isHighlight: i == wordIdx,
-                highlightKey: i == wordIdx ? _highlightKey : null,
-                onTap: () => _onWordTap(context.read<AppState>(), i),
-              ),
+    for (int i = start; i < end; i++) {
+      final word = words[i];
+      if (i == wordIdx) {
+        _wordOffsets.add((charOffset, charOffset + 1, i));
+        charOffset += 1; // WidgetSpan = U+FFFC = 1 char in text metrics
+        children.add(WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Container(
+            key: _highlightKey,
+            color: colors.amberDim,
+            padding: const EdgeInsets.symmetric(horizontal: 1),
+            child: Text(
+              '$word ',
+              style: base.copyWith(
+                  color: colors.amber, fontWeight: FontWeight.w700),
             ),
+          ),
+        ));
+      } else {
+        _wordOffsets.add((charOffset, charOffset + word.length + 1, i));
+        charOffset += word.length + 1;
+        children.add(TextSpan(text: '$word ', style: base));
+      }
+    }
 
-          // Plain text after tappable zone
-          if (tapEnd < end)
-            TextSpan(text: ' ${words.sublist(tapEnd, end).join(' ')}'),
+    if (end < words.length) {
+      children.add(TextSpan(text: '\n\n···', style: mutedStyle));
+    }
 
-          if (end < words.length)
-            TextSpan(
-                text: '\n\n···',
-                style: base.copyWith(color: TerminalColors.textMuted)),
-        ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapUp: (d) => _handleTextTap(d, state),
+      child: RichText(
+        key: _richTextKey,
+        text: TextSpan(style: base, children: children),
       ),
     );
   }
@@ -219,51 +244,15 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
 
 // ─── Sub-widgets ──────────────────────────────────────────────────────────────
 
-class _TappableWord extends StatelessWidget {
-  final String word;
-  final bool isHighlight;
-  final GlobalKey? highlightKey;
-  final VoidCallback onTap;
-
-  const _TappableWord({
-    required this.word,
-    required this.isHighlight,
-    required this.onTap,
-    this.highlightKey,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final style = GoogleFonts.jetBrainsMono(
-      color: isHighlight ? TerminalColors.amber : TerminalColors.textPrimary,
-      fontSize: 14,
-      height: 1.75,
-      fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w400,
-    );
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        key: highlightKey,
-        color: isHighlight ? TerminalColors.amberDim : Colors.transparent,
-        padding: isHighlight
-            ? const EdgeInsets.symmetric(horizontal: 1)
-            : EdgeInsets.zero,
-        child: Text('$word ', style: style),
-      ),
-    );
-  }
-}
-
 class _RsvpButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _RsvpButton({required this.onTap});
+  final AppColors colors;
+  const _RsvpButton({required this.onTap, required this.colors});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: TerminalColors.background,
+      color: colors.background,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: SafeArea(
         child: SizedBox(
@@ -271,7 +260,7 @@ class _RsvpButton extends StatelessWidget {
           child: OutlinedButton(
             onPressed: onTap,
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: TerminalColors.amber, width: 1),
+              side: BorderSide(color: colors.amber, width: 1),
               shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.zero),
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -279,7 +268,7 @@ class _RsvpButton extends StatelessWidget {
             child: Text(
               '▶  RSVP MODE',
               style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.amber,
+                  color: colors.amber,
                   fontSize: 12,
                   letterSpacing: 3,
                   fontWeight: FontWeight.w700),

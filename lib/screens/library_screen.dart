@@ -30,7 +30,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Future<void> _importBook() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['epub', 'txt'],
+      allowedExtensions: ['epub', 'txt', 'pdf'],
     );
     if (result == null || result.files.single.path == null) return;
     if (!mounted) return;
@@ -39,10 +39,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!mounted) return;
     final err = state.error;
     if (err != null) {
+      final colors = Theme.of(context).extension<AppColors>()!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(err, style: GoogleFonts.jetBrainsMono(fontSize: 12)),
-          backgroundColor: TerminalColors.surface,
+          backgroundColor: colors.surface,
         ),
       );
     }
@@ -119,24 +120,26 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _buildLibrary() {
     return Consumer<AppState>(
       builder: (context, state, _) {
+        final colors = Theme.of(context).extension<AppColors>()!;
+
         if (state.loading) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(
+                SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
-                    color: TerminalColors.amber,
+                    color: colors.amber,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'PARSING...',
                   style: GoogleFonts.jetBrainsMono(
-                    color: TerminalColors.textMuted,
+                    color: colors.textMuted,
                     fontSize: 11,
                     letterSpacing: 3,
                   ),
@@ -154,16 +157,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 Text(
                   '[ NO BOOKS ]',
                   style: GoogleFonts.jetBrainsMono(
-                    color: TerminalColors.textMuted,
+                    color: colors.textMuted,
                     fontSize: 12,
                     letterSpacing: 3,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'tap + to import epub or txt',
+                  'tap + to import epub, txt or pdf',
                   style: GoogleFonts.jetBrainsMono(
-                    color: TerminalColors.textMuted,
+                    color: colors.textMuted,
                     fontSize: 11,
                   ),
                 ),
@@ -180,7 +183,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   context,
                   MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
                 ),
-                child: _StatsBar(total: state.totalWordsRead, streak: state.streak),
+                child: _StatsBar(
+                    total: state.totalWordsRead,
+                    streak: state.streak,
+                    colors: colors),
               ),
             Expanded(
               child: ListView.builder(
@@ -213,7 +219,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
 class _StatsBar extends StatelessWidget {
   final int total;
   final int streak;
-  const _StatsBar({required this.total, required this.streak});
+  final AppColors colors;
+  const _StatsBar({required this.total, required this.streak, required this.colors});
 
   static String _fmt(int n) {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
@@ -227,7 +234,7 @@ class _StatsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labelStyle = GoogleFonts.jetBrainsMono(
-      color: TerminalColors.amber,
+      color: colors.amber,
       fontSize: 11,
       letterSpacing: 2,
       fontWeight: FontWeight.w600,
@@ -239,7 +246,7 @@ class _StatsBar extends StatelessWidget {
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              decoration: BoxDecoration(border: Border.all(color: TerminalColors.border)),
+              decoration: BoxDecoration(border: Border.all(color: colors.border)),
               child: Text('${_fmt(total)} WORDS', style: labelStyle, textAlign: TextAlign.center),
             ),
           ),
@@ -247,7 +254,7 @@ class _StatsBar extends StatelessWidget {
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              decoration: BoxDecoration(border: Border.all(color: TerminalColors.border)),
+              decoration: BoxDecoration(border: Border.all(color: colors.border)),
               child: Text('$streak DAY STREAK', style: labelStyle),
             ),
           ],

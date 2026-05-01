@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import 'package:vibration/vibration.dart';
 import '../models/book.dart';
 import 'epub_parser.dart';
+import 'pdf_parser.dart';
 import 'rsvp_service.dart';
 import 'storage_service.dart';
 import 'txt_parser.dart';
@@ -35,6 +37,8 @@ class AppState extends ChangeNotifier {
   int _sessionWordsRead = 0;
   int _totalWordsRead = 0;
   int _streak = 0;
+  bool _isDarkMode = true;
+  bool _vibrationEnabled = false;
 
   // ─── Streak Mode ───────────────────────────────────────────────────────────
   static const List<int> _goals = [500, 1000, 1500, 2000, 3000, 5000];
@@ -54,6 +58,8 @@ class AppState extends ChangeNotifier {
   int get dailyWordsRead => _dailyWordsRead;
   int get dailyGoalTier => _dailyGoalTier;
   int? get pendingMilestone => _pendingMilestone;
+  bool get isDarkMode => _isDarkMode;
+  bool get vibrationEnabled => _vibrationEnabled;
 
   // After the last fixed goal (5000), each tier adds another 5000.
   static int _tierEnd(int tier) {
@@ -93,6 +99,8 @@ class AppState extends ChangeNotifier {
     _streakModeEnabled = await StorageService.loadStreakModeEnabled();
     _dailyWordsRead = await StorageService.loadTodayWords();
     _dailyGoalTier = await StorageService.loadGoalTierForToday();
+    _isDarkMode = await StorageService.loadThemeMode();
+    _vibrationEnabled = await StorageService.loadVibrationEnabled();
     while (_dailyWordsRead >= _tierEnd(_dailyGoalTier)) {
       _dailyGoalTier++;
     }
@@ -119,6 +127,10 @@ class AppState extends ChangeNotifier {
         words = result.words;
         title = result.title;
         author = result.author;
+      } else if (ext == 'pdf') {
+        words = await PdfParser.parse(destPath);
+        title = sourcePath.split('/').last.replaceAll('.pdf', '');
+        author = 'Unknown';
       } else {
         words = await TxtParser.parse(destPath);
         title = sourcePath.split('/').last.replaceAll('.txt', '');
@@ -165,6 +177,8 @@ class AppState extends ChangeNotifier {
       if (ext == 'epub') {
         final result = await EpubParser.parse(book.filePath);
         words = result.words;
+      } else if (ext == 'pdf') {
+        words = await PdfParser.parse(book.filePath);
       } else {
         words = await TxtParser.parse(book.filePath);
       }
@@ -186,6 +200,7 @@ class AppState extends ChangeNotifier {
     if (_words.isEmpty) return;
     _isPlaying = true;
     _scheduleNext();
+    _vibrate(duration: 30);
     notifyListeners();
   }
 
@@ -194,7 +209,22 @@ class AppState extends ChangeNotifier {
     _timer?.cancel();
     _saveProgress();
     _flushSessionWords();
+    _vibrate(duration: 50);
     notifyListeners();
+  }
+
+  void vibrateMilestone() => _vibrate(pattern: [0, 80, 60, 80]);
+
+  void _vibrate({int? duration, List<int>? pattern}) {
+    if (!_vibrationEnabled) return;
+    Vibration.hasVibrator().then((has) {
+      if (has != true) return;
+      if (pattern != null) {
+        Vibration.vibrate(pattern: pattern);
+      } else {
+        Vibration.vibrate(duration: duration ?? 40);
+      }
+    });
   }
 
   Future<void> _flushSessionWords() async {
@@ -311,6 +341,18 @@ class AppState extends ChangeNotifier {
   void setStreakModeEnabled(bool v) {
     _streakModeEnabled = v;
     StorageService.saveStreakModeEnabled(v);
+    notifyListeners();
+  }
+
+  void setDarkMode(bool v) {
+    _isDarkMode = v;
+    StorageService.saveThemeMode(v);
+    notifyListeners();
+  }
+
+  void setVibrationEnabled(bool v) {
+    _vibrationEnabled = v;
+    StorageService.saveVibrationEnabled(v);
     notifyListeners();
   }
 

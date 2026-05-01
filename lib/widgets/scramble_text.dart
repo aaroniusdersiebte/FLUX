@@ -38,9 +38,14 @@ class _ScrambleTextState extends State<ScrambleText> {
   @override
   void initState() {
     super.initState();
-    _displayed = _randomString(widget.text.length);
     _totalSteps = (widget.duration.inMilliseconds / 30).round();
-    _startAnimation();
+    if (widget.reverse) {
+      _displayed = widget.text;
+      _startReverseAnimation();
+    } else {
+      _displayed = _randomString(widget.text.length);
+      _startAnimation();
+    }
   }
 
   String _randomString(int len) {
@@ -48,6 +53,25 @@ class _ScrambleTextState extends State<ScrambleText> {
       len,
       (i) => widget.text[i] == ' ' ? ' ' : _chars[_rng.nextInt(_chars.length)],
     ).join();
+  }
+
+  void _startReverseAnimation() {
+    _timer = Timer.periodic(const Duration(milliseconds: 30), (t) {
+      if (!mounted) { t.cancel(); return; }
+      _step++;
+      final progress = _step / _totalSteps;
+      final scrambledChars = (progress * widget.text.length).ceil();
+      final stillRevealed = widget.text.length - scrambledChars;
+      setState(() {
+        _displayed = stillRevealed > 0
+            ? widget.text.substring(0, stillRevealed) + _randomString(scrambledChars)
+            : _randomString(widget.text.length);
+      });
+      if (_step >= _totalSteps) {
+        t.cancel();
+        widget.onComplete?.call();
+      }
+    });
   }
 
   void _startAnimation() {

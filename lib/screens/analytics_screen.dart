@@ -29,7 +29,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   int get _totalWords => _dailyStats.values.fold(0, (s, v) => s + v);
 
-  /// Returns the last 7 calendar days (oldest first) as {dateStr: count}.
   List<_DayStat> get _last7 {
     final today = DateTime.now();
     return List.generate(7, (i) {
@@ -41,44 +40,45 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColors>()!;
     return Scaffold(
       appBar: AppBar(title: const Text('ANALYTICS')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: TerminalColors.amber, strokeWidth: 1.5))
-          : _buildBody(),
+          ? Center(child: CircularProgressIndicator(color: colors.amber, strokeWidth: 1.5))
+          : _buildBody(colors),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(AppColors colors) {
     final days = _last7;
     final total = _totalWords;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
       children: [
-        _TotalStat(total: total, streak: _streak),
+        _TotalStat(total: total, streak: _streak, colors: colors),
         const SizedBox(height: 36),
         Text('LETZTE 7 TAGE',
             style: GoogleFonts.jetBrainsMono(
-                color: TerminalColors.amber, fontSize: 10, letterSpacing: 3.5, fontWeight: FontWeight.w700)),
+                color: colors.amber, fontSize: 10, letterSpacing: 3.5, fontWeight: FontWeight.w700)),
         const SizedBox(height: 16),
         SizedBox(
           height: 180,
-          child: _BarChart(days: days),
+          child: _BarChart(days: days, colors: colors),
         ),
         const SizedBox(height: 32),
-        Divider(color: TerminalColors.border, height: 1),
+        Divider(color: colors.border, height: 1),
         const SizedBox(height: 24),
         Text('TAGESVERLAUF',
             style: GoogleFonts.jetBrainsMono(
-                color: TerminalColors.amber, fontSize: 10, letterSpacing: 3.5, fontWeight: FontWeight.w700)),
+                color: colors.amber, fontSize: 10, letterSpacing: 3.5, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
-        ...days.reversed.where((d) => d.count > 0).map((d) => _DayRow(stat: d)),
+        ...days.reversed.where((d) => d.count > 0).map((d) => _DayRow(stat: d, colors: colors)),
         if (days.every((d) => d.count == 0))
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text('noch keine Lesedaten',
-                style: GoogleFonts.jetBrainsMono(color: TerminalColors.textMuted, fontSize: 11)),
+                style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11)),
           ),
       ],
     );
@@ -88,20 +88,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 class _TotalStat extends StatelessWidget {
   final int total;
   final int streak;
-  const _TotalStat({required this.total, required this.streak});
+  final AppColors colors;
+  const _TotalStat({required this.total, required this.streak, required this.colors});
 
   @override
   Widget build(BuildContext context) {
     final formatted = _fmt(total);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-      decoration: BoxDecoration(border: Border.all(color: TerminalColors.amber.withValues(alpha: 0.4))),
+      decoration: BoxDecoration(border: Border.all(color: colors.amber.withValues(alpha: 0.4))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('GESAMT GELESEN',
               style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textMuted, fontSize: 9, letterSpacing: 3)),
+                  color: colors.textMuted, fontSize: 9, letterSpacing: 3)),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -109,11 +110,11 @@ class _TotalStat extends StatelessWidget {
             children: [
               Text(formatted,
                   style: GoogleFonts.jetBrainsMono(
-                      color: TerminalColors.amber, fontSize: 36, fontWeight: FontWeight.w700)),
+                      color: colors.amber, fontSize: 36, fontWeight: FontWeight.w700)),
               const SizedBox(width: 8),
               Text('WÖRTER',
                   style: GoogleFonts.jetBrainsMono(
-                      color: TerminalColors.textMuted, fontSize: 12, letterSpacing: 2)),
+                      color: colors.textMuted, fontSize: 12, letterSpacing: 2)),
             ],
           ),
           if (streak > 0) ...[
@@ -122,7 +123,7 @@ class _TotalStat extends StatelessWidget {
               children: [
                 Text('$streak TAG${streak == 1 ? '' : 'E'} STREAK',
                     style: GoogleFonts.jetBrainsMono(
-                        color: TerminalColors.amber,
+                        color: colors.amber,
                         fontSize: 11,
                         letterSpacing: 2,
                         fontWeight: FontWeight.w600)),
@@ -154,14 +155,15 @@ const _weekdayShort = ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'];
 
 class _BarChart extends StatelessWidget {
   final List<_DayStat> days;
-  const _BarChart({required this.days});
+  final AppColors colors;
+  const _BarChart({required this.days, required this.colors});
 
   @override
   Widget build(BuildContext context) {
     final maxCount = days.map((d) => d.count).fold(0, (a, b) => a > b ? a : b);
-    final todayKey = DateTime.now().weekday; // 1=Mon..7=Sun
+    final todayKey = DateTime.now().weekday;
     return CustomPaint(
-      painter: _BarChartPainter(days: days, maxCount: maxCount, todayWeekday: todayKey),
+      painter: _BarChartPainter(days: days, maxCount: maxCount, todayWeekday: todayKey, colors: colors),
       child: const SizedBox.expand(),
     );
   }
@@ -171,20 +173,26 @@ class _BarChartPainter extends CustomPainter {
   final List<_DayStat> days;
   final int maxCount;
   final int todayWeekday;
+  final AppColors colors;
 
-  const _BarChartPainter({required this.days, required this.maxCount, required this.todayWeekday});
+  const _BarChartPainter({
+    required this.days,
+    required this.maxCount,
+    required this.todayWeekday,
+    required this.colors,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final barPaint = Paint()..color = TerminalColors.amber.withValues(alpha: 0.7);
-    final todayPaint = Paint()..color = TerminalColors.amber;
+    final barPaint = Paint()..color = colors.amber.withValues(alpha: 0.7);
+    final todayPaint = Paint()..color = colors.amber;
     final gridPaint = Paint()
-      ..color = TerminalColors.border
+      ..color = colors.border
       ..strokeWidth = 0.5;
     final labelStyle = GoogleFonts.jetBrainsMono(
-        color: TerminalColors.textMuted, fontSize: 9, letterSpacing: 1);
+        color: colors.textMuted, fontSize: 9, letterSpacing: 1);
     final countStyle = GoogleFonts.jetBrainsMono(
-        color: TerminalColors.amber, fontSize: 8);
+        color: colors.amber, fontSize: 8);
 
     const bottomPad = 24.0;
     const topPad = 16.0;
@@ -192,7 +200,6 @@ class _BarChartPainter extends CustomPainter {
     final barW = (size.width / days.length) * 0.45;
     final slotW = size.width / days.length;
 
-    // grid line at top
     canvas.drawLine(Offset(0, topPad), Offset(size.width, topPad), gridPaint);
 
     for (int i = 0; i < days.length; i++) {
@@ -203,11 +210,9 @@ class _BarChartPainter extends CustomPainter {
       final barH = (chartH * ratio).clamp(2.0, chartH);
       final top = topPad + chartH - barH;
 
-      // bar
       final rect = Rect.fromLTWH(cx - barW / 2, top, barW, barH);
       canvas.drawRect(rect, isToday ? todayPaint : barPaint);
 
-      // count label above bar (only if > 0)
       if (d.count > 0) {
         final tp = TextPainter(
           text: TextSpan(text: '${d.count}', style: countStyle),
@@ -216,13 +221,12 @@ class _BarChartPainter extends CustomPainter {
         tp.paint(canvas, Offset(cx - tp.width / 2, top - tp.height - 2));
       }
 
-      // weekday label
       final label = _weekdayShort[(d.date.weekday - 1) % 7];
       final tp = TextPainter(
         text: TextSpan(
             text: label,
             style: isToday
-                ? labelStyle.copyWith(color: TerminalColors.amber)
+                ? labelStyle.copyWith(color: colors.amber)
                 : labelStyle),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -232,12 +236,13 @@ class _BarChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BarChartPainter old) =>
-      old.maxCount != maxCount || old.days != days;
+      old.maxCount != maxCount || old.days != days || old.colors != colors;
 }
 
 class _DayRow extends StatelessWidget {
   final _DayStat stat;
-  const _DayRow({required this.stat});
+  final AppColors colors;
+  const _DayRow({required this.stat, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -250,20 +255,20 @@ class _DayRow extends StatelessWidget {
         children: [
           Text('$label  $dateStr',
               style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textMuted, fontSize: 11)),
+                  color: colors.textMuted, fontSize: 11)),
           const SizedBox(width: 16),
           Expanded(
             child: LinearProgressIndicator(
               value: stat.count > 0 ? 1.0 : 0.0,
-              backgroundColor: TerminalColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(TerminalColors.amberDim),
+              backgroundColor: colors.border,
+              valueColor: AlwaysStoppedAnimation<Color>(colors.amberDim),
               minHeight: 1,
             ),
           ),
           const SizedBox(width: 12),
           Text('${stat.count} W',
               style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textPrimary, fontSize: 11)),
+                  color: colors.textPrimary, fontSize: 11)),
         ],
       ),
     );

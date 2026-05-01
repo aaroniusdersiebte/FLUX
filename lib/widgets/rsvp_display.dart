@@ -8,23 +8,22 @@ import 'scramble_text.dart';
 
 class _FocalRingPainter extends CustomPainter {
   final double progress;
-  _FocalRingPainter(this.progress);
+  final AppColors colors;
+  _FocalRingPainter(this.progress, this.colors);
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height).deflate(1.5);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
 
-    // Track: full rounded rectangle outline
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = TerminalColors.amberDim
+        ..color = colors.amberDim
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0,
     );
 
-    // Progress: partial perimeter starting from top-center (12 o'clock)
     if (progress > 0) {
       final fullPath = Path()..addRRect(rrect);
       final metric = fullPath.computeMetrics().first;
@@ -32,7 +31,7 @@ class _FocalRingPainter extends CustomPainter {
       final startLen = (rect.width / 2 - rrect.tlRadiusX).clamp(0.0, total);
       final endLen = startLen + progress * total;
       final arcPaint = Paint()
-        ..color = TerminalColors.amber
+        ..color = colors.amber
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round;
@@ -44,15 +43,15 @@ class _FocalRingPainter extends CustomPainter {
       }
     }
 
-    // Focal line — same 2×8px amber bar as no-streak mode
     canvas.drawRect(
       Rect.fromLTWH(size.width / 2 - 1, size.height / 2 - 4, 2, 8),
-      Paint()..color = TerminalColors.amber,
+      Paint()..color = colors.amber,
     );
   }
 
   @override
-  bool shouldRepaint(_FocalRingPainter old) => old.progress != progress;
+  bool shouldRepaint(_FocalRingPainter old) =>
+      old.progress != progress || old.colors != colors;
 }
 
 /// Spritz-style RSVP display.
@@ -82,6 +81,7 @@ class RsvpDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     if (words.isEmpty) return const SizedBox.shrink();
 
+    final colors = Theme.of(context).extension<AppColors>()!;
     final idx = currentIndex.clamp(0, words.length - 1);
     final token = RsvpService.tokenize(words[idx]);
     final prev = (idx > 0 && showContext) ? words[idx - 1] : null;
@@ -100,9 +100,12 @@ class RsvpDisplay extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildRow(token, prev, next, ctxW, ctxGap, wordAreaW),
+                SizedBox(
+                  height: fontSize,
+                  child: _buildRow(colors, token, prev, next, ctxW, ctxGap, wordAreaW),
+                ),
                 const SizedBox(height: 6),
-                _buildFocalLine(ctxW, ctxGap, wordAreaW, maxDisplayW),
+                _buildFocalLine(colors, ctxW, ctxGap, wordAreaW, maxDisplayW),
               ],
             ),
           ),
@@ -112,6 +115,7 @@ class RsvpDisplay extends StatelessWidget {
   }
 
   Widget _buildRow(
+    AppColors colors,
     WordToken token,
     String? prev,
     String? next,
@@ -122,8 +126,7 @@ class RsvpDisplay extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.max,
       mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (showContext) ...[
           SizedBox(
@@ -134,14 +137,14 @@ class RsvpDisplay extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
               style: GoogleFonts.jetBrainsMono(
-                color: TerminalColors.amberDim,
+                color: colors.amberDim,
                 fontSize: (fontSize * 0.48).clamp(10.0, 18.0),
               ),
             ),
           ),
           SizedBox(width: ctxGap),
         ],
-        _buildWord(token, wordAreaW),
+        _buildWord(colors, token, wordAreaW),
         if (showContext) ...[
           SizedBox(width: ctxGap),
           SizedBox(
@@ -152,7 +155,7 @@ class RsvpDisplay extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
               style: GoogleFonts.jetBrainsMono(
-                color: TerminalColors.amberDim,
+                color: colors.amberDim,
                 fontSize: (fontSize * 0.48).clamp(10.0, 18.0),
               ),
             ),
@@ -162,7 +165,7 @@ class RsvpDisplay extends StatelessWidget {
     );
   }
 
-  Widget _buildWord(WordToken token, double wordAreaW) {
+  Widget _buildWord(AppColors colors, WordToken token, double wordAreaW) {
     const ratio = 0.601;
     final charW = fontSize * ratio;
 
@@ -178,8 +181,6 @@ class RsvpDisplay extends StatelessWidget {
     final sufW = (wordAreaW - prefW - orpW).clamp(0.0, wordAreaW);
 
     if (isDecrypting) {
-      // Align ORP char to the same focal position as the normal layout.
-      // The ORP char (index prefix.length) must start at prefW from the box left.
       final textLeft = (prefW - token.prefix.length * scaledCharW).clamp(0.0, wordAreaW);
       return SizedBox(
         width: wordAreaW,
@@ -190,12 +191,12 @@ class RsvpDisplay extends StatelessWidget {
             text: token.word,
             duration: const Duration(milliseconds: 600),
             style: GoogleFonts.jetBrainsMono(
-              color: TerminalColors.amber,
+              color: colors.amber,
               fontSize: scaledFS,
               fontWeight: FontWeight.w700,
               height: 1.0,
             ),
-            digitColor: TerminalColors.textPrimary,
+            digitColor: colors.textPrimary,
             onComplete: onDecryptComplete,
           ),
         ),
@@ -203,7 +204,7 @@ class RsvpDisplay extends StatelessWidget {
     }
 
     final base = GoogleFonts.jetBrainsMono(
-      color: TerminalColors.textPrimary,
+      color: colors.textPrimary,
       fontSize: scaledFS,
       fontWeight: FontWeight.w400,
       height: 1.0,
@@ -213,8 +214,7 @@ class RsvpDisplay extends StatelessWidget {
       width: wordAreaW,
       child: Row(
         mainAxisSize: MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
             width: prefW,
@@ -230,7 +230,7 @@ class RsvpDisplay extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 style: base.copyWith(
-                    color: TerminalColors.amber,
+                    color: colors.amber,
                     fontWeight: FontWeight.w700)),
           ),
           SizedBox(
@@ -247,7 +247,7 @@ class RsvpDisplay extends StatelessWidget {
   }
 
   Widget _buildFocalLine(
-      double ctxW, double ctxGap, double wordAreaW, double displayW) {
+      AppColors colors, double ctxW, double ctxGap, double wordAreaW, double displayW) {
     final wordAreaLeft = ctxW + ctxGap;
     final focalX = wordAreaLeft + wordAreaW * 0.40;
 
@@ -264,7 +264,7 @@ class RsvpDisplay extends StatelessWidget {
               width: 22,
               height: 22,
               child: CustomPaint(
-                painter: _FocalRingPainter(streakProgress!),
+                painter: _FocalRingPainter(streakProgress!, colors),
               ),
             ),
           ],
@@ -283,7 +283,7 @@ class RsvpDisplay extends StatelessWidget {
             top: 0,
             width: 2,
             height: 8,
-            child: Container(color: TerminalColors.amber),
+            child: Container(color: colors.amber),
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +7,7 @@ import '../services/app_state.dart';
 import '../services/rsvp_service.dart';
 import '../theme/terminal_theme.dart';
 import '../widgets/rsvp_display.dart';
+import '../widgets/scramble_text.dart';
 
 class RsvpScreen extends StatefulWidget {
   const RsvpScreen({super.key});
@@ -19,8 +21,13 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
   bool _isDecrypting = false;
   bool _showMilestone = false;
   int _milestoneTarget = 0;
+  int _milestoneTierStart = 0;
   late AppState _appState;
   late AnimationController _milestoneAnim;
+  Offset? _panStartLocal;
+  double _screenH = 0;
+  int? _wpmFeedback;
+  Timer? _wpmFeedbackTimer;
 
   @override
   void initState() {
@@ -47,6 +54,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
   void dispose() {
     _appState.removeListener(_checkMilestone);
     _milestoneAnim.dispose();
+    _wpmFeedbackTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -54,9 +62,11 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
   void _checkMilestone() {
     final m = _appState.pendingMilestone;
     if (m != null && !_showMilestone && mounted) {
+      _appState.vibrateMilestone();
       setState(() {
         _showMilestone = true;
         _milestoneTarget = m;
+        _milestoneTierStart = m > 0 ? AppState.goalTierStart(m) : 0;
       });
       _milestoneAnim.forward().then((_) {
         if (!mounted) return;
@@ -90,14 +100,35 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _handleSwipe(AppState state, DragEndDetails details) {
-    final dx = details.velocity.pixelsPerSecond.dx;
-    if (dx < 0) {
-      state.nextSentence();
+  void _handlePanEnd(AppState state, DragEndDetails details) {
+    final start = _panStartLocal;
+    _panStartLocal = null;
+    final v = details.velocity.pixelsPerSecond;
+
+    if (v.dx.abs() > v.dy.abs()) {
+      // Horizontal — sentence navigation (works during pause too)
+      if (v.dx < 0) {
+        state.nextSentence();
+      } else {
+        state.prevSentence();
+      }
+      if (!state.isPlaying) setState(() => _showPauseOverlay = true);
     } else {
-      state.prevSentence();
+      // Vertical — WPM adjustment (blocked during pause, edge zones ignored)
+      if (_showPauseOverlay || start == null) return;
+      final rel = start.dy / _screenH;
+      if (rel < 0.20 || rel > 0.80) return;
+      if (v.dy.abs() < 300) return;
+      final newWpm = v.dy < 0
+          ? (state.wpm + 5).clamp(100, 1000)
+          : (state.wpm - 5).clamp(100, 1000);
+      state.setWpm(newWpm);
+      _wpmFeedbackTimer?.cancel();
+      setState(() => _wpmFeedback = newWpm);
+      _wpmFeedbackTimer = Timer(const Duration(milliseconds: 1200), () {
+        if (mounted) setState(() => _wpmFeedback = null);
+      });
     }
-    if (!state.isPlaying) setState(() => _showPauseOverlay = true);
   }
 
   @override
@@ -107,46 +138,46 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
 
     return Consumer<AppState>(
       builder: (context, state, _) {
+        final colors = Theme.of(context).extension<AppColors>()!;
+        _screenH = MediaQuery.of(context).size.height;
         final words = state.words;
         final idx = state.wordIndex;
         final progress = words.isNotEmpty ? idx / words.length : 0.0;
         final streakProgress = state.streakModeEnabled ? state.goalProgress : null;
 
         return Scaffold(
-          backgroundColor: TerminalColors.background,
+          backgroundColor: colors.background,
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => _handleTap(state),
-            onHorizontalDragEnd: (d) => _handleSwipe(state, d),
+            onPanStart: (d) => _panStartLocal = d.localPosition,
+            onPanEnd: (d) => _handlePanEnd(state, d),
             child: SafeArea(
               child: Stack(
                 children: [
                   isLandscape
-                      ? _buildLandscape(state, words, idx, progress, streakProgress)
-                      : _buildPortrait(state, words, idx, streakProgress),
-                  if (_showPauseOverlay) _PauseOverlay(state: state),
+                      ? _buildLandscape(colors, state, words, idx, progress, streakProgress)
+                      : _buildPortrait(colors, state, words, idx, streakProgress),
+                  if (_showPauseOverlay) _PauseOverlay(state: state, colors: colors),
                   if (!isLandscape)
                     Positioned(
                       bottom: 0,
                       left: 0,
                       right: 0,
                       child: Container(
-                        color: TerminalColors.background,
+                        color: colors.background,
                         child: _BottomBar(
+                          colors: colors,
                           progress: progress,
                           idx: idx,
                           total: words.length,
                           wpm: state.wpm,
+                          milestoneAnim: _showMilestone ? _milestoneAnim : null,
+                          milestoneTarget: _milestoneTarget,
+                          milestoneTierStart: _milestoneTierStart,
+                          wpmFeedback: _wpmFeedback,
                         ),
                       ),
-                    ),
-                  if (_showMilestone)
-                    _MilestoneOverlay(
-                      anim: _milestoneAnim,
-                      target: _milestoneTarget,
-                      tierStart: _milestoneTarget > 0
-                          ? AppState.goalTierStart(_milestoneTarget)
-                          : 0,
                     ),
                 ],
               ),
@@ -165,10 +196,10 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildPortrait(
-      AppState state, List<String> words, int idx, double? streakProgress) {
+      AppColors colors, AppState state, List<String> words, int idx, double? streakProgress) {
     return Column(
       children: [
-        _TopBar(state: state),
+        _TopBar(state: state, colors: colors),
         Expanded(
           child: Center(
             child: Padding(
@@ -190,8 +221,8 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildLandscape(AppState state, List<String> words, int idx,
-      double progress, double? streakProgress) {
+  Widget _buildLandscape(AppColors colors, AppState state, List<String> words,
+      int idx, double progress, double? streakProgress) {
     return Row(
       children: [
         SizedBox(
@@ -204,14 +235,14 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
                 onTap: () => Navigator.pop(context),
                 child: Text('←',
                     style: GoogleFonts.jetBrainsMono(
-                        color: TerminalColors.amber, fontSize: 16)),
+                        color: colors.amber, fontSize: 16)),
               ),
               const Spacer(),
               RotatedBox(
                 quarterTurns: 3,
                 child: Text('${state.wpm} WPM',
                     style: GoogleFonts.jetBrainsMono(
-                        color: TerminalColors.textMuted,
+                        color: colors.textMuted,
                         fontSize: 9,
                         letterSpacing: 1.5)),
               ),
@@ -241,7 +272,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
               Text(
                 state.isPlaying ? '▶' : '■',
                 style: GoogleFonts.jetBrainsMono(
-                    color: TerminalColors.amber, fontSize: 11),
+                    color: colors.amber, fontSize: 11),
               ),
               Expanded(
                 child: Padding(
@@ -250,9 +281,8 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
                     quarterTurns: 1,
                     child: LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: TerminalColors.border,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                          TerminalColors.amber),
+                      backgroundColor: colors.border,
+                      valueColor: AlwaysStoppedAnimation<Color>(colors.amber),
                       minHeight: 1,
                     ),
                   ),
@@ -261,7 +291,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
               Text(
                 '${(progress * 100).toStringAsFixed(0)}%',
                 style: GoogleFonts.jetBrainsMono(
-                    color: TerminalColors.textMuted, fontSize: 9),
+                    color: colors.textMuted, fontSize: 9),
               ),
               const SizedBox(height: 12),
             ],
@@ -276,7 +306,8 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
 
 class _TopBar extends StatelessWidget {
   final AppState state;
-  const _TopBar({required this.state});
+  final AppColors colors;
+  const _TopBar({required this.state, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +322,7 @@ class _TopBar extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(0, 8, 16, 8),
               child: Text('←',
                   style: GoogleFonts.jetBrainsMono(
-                      color: TerminalColors.amber, fontSize: 18)),
+                      color: colors.amber, fontSize: 18)),
             ),
           ),
           Expanded(
@@ -299,7 +330,7 @@ class _TopBar extends StatelessWidget {
               state.activeBook?.title.toUpperCase() ?? '',
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textMuted,
+                  color: colors.textMuted,
                   fontSize: 10,
                   letterSpacing: 1.5),
             ),
@@ -315,11 +346,23 @@ class _BottomBar extends StatelessWidget {
   final int idx;
   final int total;
   final int wpm;
-  const _BottomBar(
-      {required this.progress,
-      required this.idx,
-      required this.total,
-      required this.wpm});
+  final AnimationController? milestoneAnim;
+  final int milestoneTarget;
+  final int milestoneTierStart;
+  final int? wpmFeedback;
+  final AppColors colors;
+
+  const _BottomBar({
+    required this.progress,
+    required this.idx,
+    required this.total,
+    required this.wpm,
+    required this.colors,
+    this.milestoneAnim,
+    this.milestoneTarget = 0,
+    this.milestoneTierStart = 0,
+    this.wpmFeedback,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -332,22 +375,44 @@ class _BottomBar extends StatelessWidget {
               Expanded(
                 child: LinearProgressIndicator(
                   value: progress,
-                  backgroundColor: TerminalColors.border,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                      TerminalColors.amber),
+                  backgroundColor: colors.border,
+                  valueColor: AlwaysStoppedAnimation<Color>(colors.amber),
                   minHeight: 1,
                 ),
               ),
               const SizedBox(width: 10),
-              Text('$idx / $total',
-                  style: GoogleFonts.jetBrainsMono(
-                      color: TerminalColors.textMuted, fontSize: 10)),
+              SizedBox(
+                width: 72,
+                child: milestoneAnim != null
+                    ? _GoalBadge(
+                        anim: milestoneAnim!,
+                        target: milestoneTarget,
+                        tierStart: milestoneTierStart,
+                        colors: colors,
+                      )
+                    : wpmFeedback != null
+                        ? ScrambleText(
+                            key: ValueKey(wpmFeedback),
+                            text: '$wpmFeedback WPM',
+                            duration: const Duration(milliseconds: 280),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.amber,
+                              fontSize: 10,
+                              letterSpacing: 1,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : Text('$idx / $total',
+                            textAlign: TextAlign.right,
+                            style: GoogleFonts.jetBrainsMono(
+                                color: colors.textMuted, fontSize: 10)),
+              ),
             ],
           ),
           const SizedBox(height: 6),
           Text('$wpm WPM',
               style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.textMuted,
+                  color: colors.textMuted,
                   fontSize: 11,
                   letterSpacing: 2)),
         ],
@@ -358,7 +423,8 @@ class _BottomBar extends StatelessWidget {
 
 class _PauseOverlay extends StatelessWidget {
   final AppState state;
-  const _PauseOverlay({required this.state});
+  final AppColors colors;
+  const _PauseOverlay({required this.state, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +438,7 @@ class _PauseOverlay extends StatelessWidget {
     return Stack(
       children: [
         Container(
-          color: TerminalColors.background.withValues(alpha: 0.94),
+          color: colors.background.withValues(alpha: 0.94),
           alignment: Alignment.center,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -381,12 +447,12 @@ class _PauseOverlay extends StatelessWidget {
               children: [
                 Text('— PAUSED —',
                     style: GoogleFonts.jetBrainsMono(
-                        color: TerminalColors.amber,
+                        color: colors.amber,
                         fontSize: 10,
                         letterSpacing: 4)),
                 const SizedBox(height: 24),
                 _SentenceWithHighlight(
-                    sentence: sentence, highlight: currentWord),
+                    sentence: sentence, highlight: currentWord, colors: colors),
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -394,20 +460,20 @@ class _PauseOverlay extends StatelessWidget {
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => state.prevSentence(),
-                      child: _Chip('← sentence'),
+                      child: _Chip('← sentence', colors),
                     ),
                     const SizedBox(width: 12),
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => state.nextSentence(),
-                      child: _Chip('sentence →'),
+                      child: _Chip('sentence →', colors),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text('tap to resume',
                     style: GoogleFonts.jetBrainsMono(
-                        color: TerminalColors.textMuted,
+                        color: colors.textMuted,
                         fontSize: 10,
                         letterSpacing: 2)),
               ],
@@ -424,7 +490,7 @@ class _PauseOverlay extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 18, 24, 18),
               child: Text('←',
                   style: GoogleFonts.jetBrainsMono(
-                      color: TerminalColors.amber, fontSize: 18)),
+                      color: colors.amber, fontSize: 18)),
             ),
           ),
         ),
@@ -436,16 +502,17 @@ class _PauseOverlay extends StatelessWidget {
 class _SentenceWithHighlight extends StatelessWidget {
   final String sentence;
   final String highlight;
+  final AppColors colors;
 
   const _SentenceWithHighlight(
-      {required this.sentence, required this.highlight});
+      {required this.sentence, required this.highlight, required this.colors});
 
   @override
   Widget build(BuildContext context) {
     if (sentence.isEmpty) return const SizedBox.shrink();
 
     final base = GoogleFonts.jetBrainsMono(
-        color: TerminalColors.textPrimary, fontSize: 14, height: 1.8);
+        color: colors.textPrimary, fontSize: 14, height: 1.8);
 
     final lowerSentence = sentence.toLowerCase();
     final lowerHighlight = highlight.toLowerCase();
@@ -467,11 +534,11 @@ class _SentenceWithHighlight extends StatelessWidget {
           alignment: PlaceholderAlignment.baseline,
           baseline: TextBaseline.alphabetic,
           child: Container(
-            color: TerminalColors.amberDim,
+            color: colors.amberDim,
             padding: const EdgeInsets.symmetric(horizontal: 1),
             child: Text(match,
                 style: base.copyWith(
-                    color: TerminalColors.amber,
+                    color: colors.amber,
                     fontWeight: FontWeight.w700)),
           ),
         ),
@@ -483,67 +550,100 @@ class _SentenceWithHighlight extends StatelessWidget {
 
 class _Chip extends StatelessWidget {
   final String text;
-  const _Chip(this.text);
+  final AppColors colors;
+  const _Chip(this.text, this.colors);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(border: Border.all(color: TerminalColors.border)),
+      decoration: BoxDecoration(border: Border.all(color: colors.border)),
       child: Text(text,
           style: GoogleFonts.jetBrainsMono(
-              color: TerminalColors.textMuted, fontSize: 9, letterSpacing: 1)),
+              color: colors.textMuted, fontSize: 9, letterSpacing: 1)),
     );
   }
 }
 
-class _MilestoneOverlay extends StatelessWidget {
+class _GoalBadge extends StatefulWidget {
   final AnimationController anim;
   final int target;
   final int tierStart;
+  final AppColors colors;
 
-  const _MilestoneOverlay({
+  const _GoalBadge({
     required this.anim,
     required this.target,
     required this.tierStart,
+    required this.colors,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final countAnim = IntTween(begin: tierStart, end: target).animate(
-      CurvedAnimation(parent: anim, curve: const Interval(0.0, 0.43, curve: Curves.easeOut)),
-    );
-    final fadeAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: anim, curve: const Interval(0.71, 1.0, curve: Curves.easeIn)),
-    );
-    final scaleAnim = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 30),
-      TweenSequenceItem(tween: Tween(begin: 1.35, end: 1.0), weight: 70),
-    ]).animate(CurvedAnimation(parent: anim, curve: const Interval(0.0, 0.43)));
+  State<_GoalBadge> createState() => _GoalBadgeState();
+}
 
-    return Align(
-      alignment: const Alignment(0, 0.45),
-      child: AnimatedBuilder(
-        animation: anim,
-        builder: (context, _) {
-          final showGoal = anim.value >= 0.43 && anim.value < 0.71;
-          return FadeTransition(
-            opacity: fadeAnim,
-            child: ScaleTransition(
-              scale: scaleAnim,
-              child: Text(
-                showGoal ? '★  GOAL' : '${countAnim.value}',
-                style: GoogleFonts.jetBrainsMono(
-                  color: TerminalColors.amber,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 4,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+class _GoalBadgeState extends State<_GoalBadge> {
+  bool _showGoal = false;
+  bool _fadingOut = false;
+  late Animation<int> _countAnim;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _countAnim = IntTween(begin: widget.tierStart, end: widget.target).animate(
+      CurvedAnimation(
+          parent: widget.anim,
+          curve: const Interval(0.0, 0.43, curve: Curves.easeOut)),
+    );
+    _fadeAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+          parent: widget.anim,
+          curve: const Interval(0.71, 1.0, curve: Curves.easeIn)),
+    );
+    widget.anim.addListener(_onAnim);
+  }
+
+  void _onAnim() {
+    if (!mounted) return;
+    if (widget.anim.value >= 0.43 && !_showGoal) {
+      setState(() => _showGoal = true);
+    }
+    if (widget.anim.value >= 0.71 && !_fadingOut) {
+      setState(() => _fadingOut = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.anim.removeListener(_onAnim);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = GoogleFonts.jetBrainsMono(
+      color: widget.colors.amber,
+      fontSize: 10,
+      letterSpacing: 1.5,
+    );
+
+    if (_showGoal) {
+      return FadeTransition(
+        opacity: _fadeAnim,
+        child: ScrambleText(
+          key: ValueKey(_fadingOut ? 'badge_out' : 'badge_in'),
+          text: '★ GOAL',
+          reverse: _fadingOut,
+          duration: const Duration(milliseconds: 350),
+          style: style,
+        ),
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _countAnim,
+      builder: (context, child) => Text('${_countAnim.value}', style: style),
     );
   }
 }

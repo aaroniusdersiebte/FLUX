@@ -18,14 +18,15 @@ class BookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColors>()!;
     return GestureDetector(
       onTap: onTap,
-      onLongPress: () => _confirmDelete(context),
+      onLongPress: () => _confirmDelete(context, colors),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: TerminalColors.surface,
-          border: Border.all(color: TerminalColors.border),
+          color: colors.surface,
+          border: Border.all(color: colors.border),
         ),
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -40,7 +41,7 @@ class BookCard extends StatelessWidget {
                       Text(
                         '[${book.format.toUpperCase()}]',
                         style: GoogleFonts.jetBrainsMono(
-                          color: TerminalColors.amber,
+                          color: colors.amber,
                           fontSize: 10,
                           letterSpacing: 1.5,
                         ),
@@ -50,7 +51,7 @@ class BookCard extends StatelessWidget {
                         child: Text(
                           book.title,
                           style: GoogleFonts.jetBrainsMono(
-                            color: TerminalColors.textPrimary,
+                            color: colors.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -63,7 +64,7 @@ class BookCard extends StatelessWidget {
                   Text(
                     book.author,
                     style: GoogleFonts.jetBrainsMono(
-                      color: TerminalColors.textMuted,
+                      color: colors.textMuted,
                       fontSize: 11,
                     ),
                   ),
@@ -71,23 +72,23 @@ class BookCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-            _ProgressRing(progress: book.progress),
+            _ProgressRing(progress: book.progress, colors: colors),
           ],
         ),
       ),
     );
   }
 
-  void _confirmDelete(BuildContext context) {
+  void _confirmDelete(BuildContext context, AppColors colors) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: TerminalColors.surface,
+        backgroundColor: colors.surface,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Text(
           'DELETE BOOK',
           style: GoogleFonts.jetBrainsMono(
-            color: TerminalColors.amber,
+            color: colors.amber,
             fontSize: 13,
             letterSpacing: 2,
           ),
@@ -95,7 +96,7 @@ class BookCard extends StatelessWidget {
         content: Text(
           '"${book.title}" entfernen?',
           style: GoogleFonts.jetBrainsMono(
-            color: TerminalColors.textPrimary,
+            color: colors.textPrimary,
             fontSize: 13,
           ),
         ),
@@ -104,7 +105,7 @@ class BookCard extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               'CANCEL',
-              style: GoogleFonts.jetBrainsMono(color: TerminalColors.textMuted),
+              style: GoogleFonts.jetBrainsMono(color: colors.textMuted),
             ),
           ),
           TextButton(
@@ -114,7 +115,7 @@ class BookCard extends StatelessWidget {
             },
             child: Text(
               'DELETE',
-              style: GoogleFonts.jetBrainsMono(color: TerminalColors.amber),
+              style: GoogleFonts.jetBrainsMono(color: colors.amber),
             ),
           ),
         ],
@@ -125,7 +126,8 @@ class BookCard extends StatelessWidget {
 
 class _ProgressRing extends StatelessWidget {
   final double progress;
-  const _ProgressRing({required this.progress});
+  final AppColors colors;
+  const _ProgressRing({required this.progress, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -134,12 +136,12 @@ class _ProgressRing extends StatelessWidget {
       width: 40,
       height: 40,
       child: CustomPaint(
-        painter: _RingPainter(progress: progress),
+        painter: _RingPainter(progress: progress, colors: colors),
         child: Center(
           child: Text(
             '$pct',
             style: GoogleFonts.jetBrainsMono(
-              color: progress > 0 ? TerminalColors.amber : TerminalColors.textMuted,
+              color: progress > 0 ? colors.amber : colors.textMuted,
               fontSize: 9,
               fontWeight: FontWeight.w700,
             ),
@@ -152,7 +154,8 @@ class _ProgressRing extends StatelessWidget {
 
 class _RingPainter extends CustomPainter {
   final double progress;
-  const _RingPainter({required this.progress});
+  final AppColors colors;
+  const _RingPainter({required this.progress, required this.colors});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -162,7 +165,7 @@ class _RingPainter extends CustomPainter {
         center,
         radius,
         Paint()
-          ..color = TerminalColors.border
+          ..color = colors.border
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.0);
     if (progress > 0) {
@@ -172,7 +175,7 @@ class _RingPainter extends CustomPainter {
         2 * pi * progress,
         false,
         Paint()
-          ..color = TerminalColors.amber
+          ..color = colors.amber
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.0
           ..strokeCap = StrokeCap.round,
@@ -181,5 +184,6 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) => old.progress != progress;
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.colors != colors;
 }

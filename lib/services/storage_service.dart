@@ -186,4 +186,28 @@ class StorageService {
     await prefs.setInt('streak_goal_tier', tier);
     await prefs.setString('streak_goal_date', _dateKey(DateTime.now()));
   }
+
+  // ─── Theme ─────────────────────────────────────────────────────────────────
+
+  static Future<bool> loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('is_dark_mode') ?? true;
+  }
+
+  static Future<void> saveThemeMode(bool isDark) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_dark_mode', isDark);
+  }
+
+  // ─── Vibration ─────────────────────────────────────────────────────────────
+
+  static Future<bool> loadVibrationEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('vibration_enabled') ?? false;
+  }
+
+  static Future<void> saveVibrationEnabled(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('vibration_enabled', v);
+  }
 }
