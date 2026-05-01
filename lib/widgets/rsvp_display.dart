@@ -405,12 +405,18 @@ class _GoalBadgeState extends State<GoalBadge> {
     if (_showGoal) {
       return FadeTransition(
         opacity: _fadeAnim,
-        child: ScrambleText(
-          key: ValueKey(_fadingOut ? 'badge_out' : 'badge_in'),
-          text: '★ GOAL',
-          reverse: _fadingOut,
-          duration: const Duration(milliseconds: 350),
-          style: style,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${widget.target}', style: style),
+            ScrambleText(
+              key: ValueKey(_fadingOut ? 'badge_out' : 'badge_in'),
+              text: ' GOAL',
+              reverse: _fadingOut,
+              duration: const Duration(milliseconds: 350),
+              style: style,
+            ),
+          ],
         ),
       );
     }

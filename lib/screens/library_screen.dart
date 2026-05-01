@@ -21,6 +21,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool _bootDone = false;
   late final PageController _pageController;
   int _currentPage = 1;
+  double? _dragStartX;
 
   @override
   void initState() {
@@ -28,16 +29,22 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final state = context.read<AppState>();
     if (!state.isFirstLaunch) _bootDone = true;
     _pageController = PageController(initialPage: 1);
-    _pageController.addListener(() {
-      final page = _pageController.page?.round() ?? 1;
-      if (page != _currentPage) setState(() => _currentPage = page);
-    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _goToPage(int target) {
+    final clamped = target.clamp(0, 2);
+    setState(() => _currentPage = clamped);
+    _pageController.animateToPage(
+      clamped,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _importBook() async {
@@ -80,25 +87,52 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 _PageHeader(
                   currentPage: _currentPage,
                   colors: colors,
-                  onLeft: () => _pageController.animateToPage(
-                    0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  ),
-                  onRight: () => _pageController.animateToPage(
-                    2,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  ),
+                  onLeft: () => _goToPage(0),
+                  onRight: () => _goToPage(2),
                 ),
                 Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    children: [
-                      const AnalyticsBody(),
-                      _buildLibrary(),
-                      const SettingsBody(),
-                    ],
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragStart: (d) {
+                      _dragStartX = d.localPosition.dx;
+                    },
+                    onHorizontalDragUpdate: (d) {
+                      if (_dragStartX == null || !_pageController.hasClients) return;
+                      final w = MediaQuery.of(context).size.width;
+                      final delta = _dragStartX! - d.localPosition.dx;
+                      final newOffset = (_currentPage * w + delta).clamp(0.0, 2 * w);
+                      _pageController.jumpTo(newOffset);
+                    },
+                    onHorizontalDragEnd: (d) {
+                      _dragStartX = null;
+                      if (!_pageController.hasClients) return;
+                      final v = d.primaryVelocity ?? 0;
+                      final w = MediaQuery.of(context).size.width;
+                      final pos = _pageController.offset / w;
+                      int target;
+                      if (v < -300) {
+                        target = _currentPage + 1;
+                      } else if (v > 300) {
+                        target = _currentPage - 1;
+                      } else if (pos > _currentPage + 0.2) {
+                        target = _currentPage + 1;
+                      } else if (pos < _currentPage - 0.2) {
+                        target = _currentPage - 1;
+                      } else {
+                        target = _currentPage;
+                      }
+                      _goToPage(target);
+                    },
+                    child: PageView(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      onPageChanged: (p) => setState(() => _currentPage = p),
+                      children: [
+                        const AnalyticsBody(),
+                        _buildLibrary(),
+                        const SettingsBody(),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -213,11 +247,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           children: [
             if (state.totalWordsRead > 0)
               GestureDetector(
-                onTap: () => _pageController.animateToPage(
-                  0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                ),
+                onTap: () => _goToPage(0),
                 child: _StatsBar(
                     total: state.totalWordsRead,
                     streak: state.streak,
@@ -229,10 +259,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 itemCount: state.books.length,
                 itemBuilder: (ctx, i) {
                   final book = state.books[i];
-                  // Use live wordIndex for active book to prevent stale progress
+                  // Use live index+total from AppState so % matches RSVP screen
                   final displayBook =
                       (book.id == state.activeBook?.id && state.words.isNotEmpty)
-                          ? book.copyWith(wordIndex: state.wordIndex)
+                          ? book.copyWith(
+                              wordIndex: state.wordIndex,
+                              totalWords: state.words.length,
+                            )
                           : book;
                   return BookCard(
                     book: displayBook,
