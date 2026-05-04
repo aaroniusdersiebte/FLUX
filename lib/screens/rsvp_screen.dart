@@ -34,7 +34,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
     super.initState();
     _appState = context.read<AppState>();
     _milestoneAnim = AnimationController(
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 2800),
       vsync: this,
     );
     _appState.addListener(_checkMilestone);
@@ -221,6 +221,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
                 milestoneAnim: _showMilestone ? _milestoneAnim : null,
                 milestoneTarget: _milestoneTarget,
                 milestoneTierStart: _milestoneTierStart,
+                highlightOrp: state.highlightOrp,
               ),
             ),
           ),
@@ -273,6 +274,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
               milestoneAnim: _showMilestone ? _milestoneAnim : null,
               milestoneTarget: _milestoneTarget,
               milestoneTierStart: _milestoneTierStart,
+              highlightOrp: state.highlightOrp,
             ),
           ),
         ),

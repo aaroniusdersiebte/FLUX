@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/word_token.dart';
 import '../services/rsvp_service.dart';
 import '../theme/terminal_theme.dart';
@@ -69,6 +68,7 @@ class RsvpDisplay extends StatelessWidget {
   final AnimationController? milestoneAnim;
   final int milestoneTarget;
   final int milestoneTierStart;
+  final bool highlightOrp;
 
   const RsvpDisplay({
     super.key,
@@ -83,6 +83,7 @@ class RsvpDisplay extends StatelessWidget {
     this.milestoneAnim,
     this.milestoneTarget = 0,
     this.milestoneTierStart = 0,
+    this.highlightOrp = true,
   });
 
   @override
@@ -144,10 +145,9 @@ class RsvpDisplay extends StatelessWidget {
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.amberDim,
-                fontSize: (fontSize * 0.48).clamp(10.0, 18.0),
-              ),
+              style: AppFont.get(colors.fontFamily,
+                  color: colors.amberDim,
+                  fontSize: (fontSize * 0.48).clamp(10.0, 18.0)),
             ),
           ),
           SizedBox(width: ctxGap),
@@ -162,10 +162,9 @@ class RsvpDisplay extends StatelessWidget {
               textAlign: TextAlign.left,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.amberDim,
-                fontSize: (fontSize * 0.48).clamp(10.0, 18.0),
-              ),
+              style: AppFont.get(colors.fontFamily,
+                  color: colors.amberDim,
+                  fontSize: (fontSize * 0.48).clamp(10.0, 18.0)),
             ),
           ),
         ],
@@ -198,12 +197,11 @@ class RsvpDisplay extends StatelessWidget {
             key: ValueKey('decrypt_${token.word}'),
             text: token.word,
             duration: const Duration(milliseconds: 600),
-            style: GoogleFonts.jetBrainsMono(
-              color: colors.amber,
-              fontSize: scaledFS,
-              fontWeight: FontWeight.w700,
-              height: 1.0,
-            ),
+            style: AppFont.get(colors.fontFamily,
+                color: colors.amber,
+                fontSize: scaledFS,
+                weight: FontWeight.w700,
+                height: 1.0),
             digitColor: colors.textPrimary,
             onComplete: onDecryptComplete,
           ),
@@ -211,12 +209,13 @@ class RsvpDisplay extends StatelessWidget {
       );
     }
 
-    final base = GoogleFonts.jetBrainsMono(
-      color: colors.textPrimary,
-      fontSize: scaledFS,
-      fontWeight: FontWeight.w400,
-      height: 1.0,
-    );
+    final base = AppFont.get(colors.fontFamily,
+        color: colors.textPrimary,
+        fontSize: scaledFS,
+        weight: FontWeight.w400,
+        height: 1.0);
+
+    final orpColor = highlightOrp ? colors.amber : colors.textPrimary;
 
     return SizedBox(
       width: wordAreaW,
@@ -238,8 +237,7 @@ class RsvpDisplay extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 style: base.copyWith(
-                    color: colors.amber,
-                    fontWeight: FontWeight.w700)),
+                    color: orpColor, fontWeight: FontWeight.w700)),
           ),
           SizedBox(
             width: sufW,
@@ -275,12 +273,11 @@ class RsvpDisplay extends StatelessWidget {
         key: ValueKey(wpmFeedback),
         text: '$wpmFeedback WPM',
         duration: const Duration(milliseconds: 280),
-        style: GoogleFonts.jetBrainsMono(
-          color: colors.amber,
-          fontSize: 10,
-          letterSpacing: 1,
-          fontWeight: FontWeight.w700,
-        ),
+        style: AppFont.get(colors.fontFamily,
+            color: colors.amber,
+            fontSize: 10,
+            letterSpacing: 1,
+            weight: FontWeight.w700),
       );
     }
 
@@ -373,7 +370,7 @@ class _GoalBadgeState extends State<GoalBadge> {
     _fadeAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
           parent: widget.anim,
-          curve: const Interval(0.71, 1.0, curve: Curves.easeIn)),
+          curve: const Interval(0.82, 1.0, curve: Curves.easeIn)),
     );
     widget.anim.addListener(_onAnim);
   }
@@ -383,7 +380,7 @@ class _GoalBadgeState extends State<GoalBadge> {
     if (widget.anim.value >= 0.43 && !_showGoal) {
       setState(() => _showGoal = true);
     }
-    if (widget.anim.value >= 0.71 && !_fadingOut) {
+    if (widget.anim.value >= 0.82 && !_fadingOut) {
       setState(() => _fadingOut = true);
     }
   }
@@ -396,28 +393,13 @@ class _GoalBadgeState extends State<GoalBadge> {
 
   @override
   Widget build(BuildContext context) {
-    final style = GoogleFonts.jetBrainsMono(
-      color: widget.colors.amber,
-      fontSize: 10,
-      letterSpacing: 1.5,
-    );
+    final style = AppFont.get(widget.colors.fontFamily,
+        color: widget.colors.amber, fontSize: 10, letterSpacing: 1.5);
 
     if (_showGoal) {
       return FadeTransition(
         opacity: _fadeAnim,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('${widget.target}', style: style),
-            ScrambleText(
-              key: ValueKey(_fadingOut ? 'badge_out' : 'badge_in'),
-              text: ' GOAL',
-              reverse: _fadingOut,
-              duration: const Duration(milliseconds: 350),
-              style: style,
-            ),
-          ],
-        ),
+        child: Text('${widget.target}', style: style.copyWith(fontSize: 13)),
       );
     }
 

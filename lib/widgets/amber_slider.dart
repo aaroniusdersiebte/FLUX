@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/terminal_theme.dart';
 
 class AmberSlider extends StatelessWidget {
@@ -33,20 +32,16 @@ class AmberSlider extends StatelessWidget {
           children: [
             Text(
               label,
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textMuted,
-                fontSize: 11,
-                letterSpacing: 2.0,
-              ),
+              style: AppFont.get(colors.fontFamily,
+                  color: colors.textMuted, fontSize: 11, letterSpacing: 2.0),
             ),
             Text(
               valueLabel(value),
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.amber,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.0,
-              ),
+              style: AppFont.get(colors.fontFamily,
+                  color: colors.amber,
+                  fontSize: 13,
+                  weight: FontWeight.w700,
+                  letterSpacing: 1.0),
             ),
           ],
         ),

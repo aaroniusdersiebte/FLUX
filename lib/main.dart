@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 import 'screens/library_screen.dart';
 import 'screens/reader_screen.dart';
 import 'services/app_state.dart';
+import 'services/notification_service.dart';
 import 'theme/terminal_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.landscapeLeft,
@@ -32,7 +34,13 @@ class FluxApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppState>(
       builder: (context, state, _) {
-        final colors = state.isDarkMode ? AppColors.dark : AppColors.light;
+        final base = state.isDarkMode ? AppColors.dark : AppColors.light;
+        final accent = state.accentColor;
+        final colors = base.copyWith(
+          amber: accent,
+          amberDim: accent.withValues(alpha: 0x4D / 255),
+          fontFamily: state.fontFamily,
+        );
         SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness:

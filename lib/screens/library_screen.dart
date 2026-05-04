@@ -21,7 +21,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool _bootDone = false;
   late final PageController _pageController;
   int _currentPage = 1;
-  double? _dragStartX;
 
   @override
   void initState() {
@@ -91,48 +90,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   onRight: () => _goToPage(2),
                 ),
                 Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onHorizontalDragStart: (d) {
-                      _dragStartX = d.localPosition.dx;
-                    },
-                    onHorizontalDragUpdate: (d) {
-                      if (_dragStartX == null || !_pageController.hasClients) return;
-                      final w = MediaQuery.of(context).size.width;
-                      final delta = _dragStartX! - d.localPosition.dx;
-                      final newOffset = (_currentPage * w + delta).clamp(0.0, 2 * w);
-                      _pageController.jumpTo(newOffset);
-                    },
-                    onHorizontalDragEnd: (d) {
-                      _dragStartX = null;
-                      if (!_pageController.hasClients) return;
-                      final v = d.primaryVelocity ?? 0;
-                      final w = MediaQuery.of(context).size.width;
-                      final pos = _pageController.offset / w;
-                      int target;
-                      if (v < -300) {
-                        target = _currentPage + 1;
-                      } else if (v > 300) {
-                        target = _currentPage - 1;
-                      } else if (pos > _currentPage + 0.2) {
-                        target = _currentPage + 1;
-                      } else if (pos < _currentPage - 0.2) {
-                        target = _currentPage - 1;
-                      } else {
-                        target = _currentPage;
-                      }
-                      _goToPage(target);
-                    },
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      onPageChanged: (p) => setState(() => _currentPage = p),
-                      children: [
-                        const AnalyticsBody(),
-                        _buildLibrary(),
-                        const SettingsBody(),
-                      ],
-                    ),
+                  child: PageView(
+                    controller: _pageController,
+                    physics: const PageScrollPhysics(),
+                    onPageChanged: (p) => setState(() => _currentPage = p),
+                    children: [
+                      Consumer<AppState>(
+                        builder: (context, state, _) => AnalyticsBody(lang: state.appLanguage),
+                      ),
+                      _buildLibrary(),
+                      Consumer<AppState>(
+                        builder: (context, state, child) =>
+                            SettingsBody(lang: state.appLanguage),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -251,6 +222,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 child: _StatsBar(
                     total: state.totalWordsRead,
                     streak: state.streak,
+                    lang: state.appLanguage,
                     colors: colors),
               ),
             Expanded(
@@ -403,9 +375,10 @@ class _NavArrow extends StatelessWidget {
 class _StatsBar extends StatelessWidget {
   final int total;
   final int streak;
+  final String lang;
   final AppColors colors;
   const _StatsBar(
-      {required this.total, required this.streak, required this.colors});
+      {required this.total, required this.streak, required this.lang, required this.colors});
 
   static String _fmt(int n) {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
@@ -434,7 +407,7 @@ class _StatsBar extends StatelessWidget {
                   const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               decoration:
                   BoxDecoration(border: Border.all(color: colors.border)),
-              child: Text('${_fmt(total)} WORDS',
+              child: Text('${_fmt(total)} ${lang == 'de' ? 'WÖRTER' : 'WORDS'}',
                   style: labelStyle, textAlign: TextAlign.center),
             ),
           ),
@@ -445,7 +418,7 @@ class _StatsBar extends StatelessWidget {
                   const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
               decoration:
                   BoxDecoration(border: Border.all(color: colors.border)),
-              child: Text('$streak DAY STREAK', style: labelStyle),
+              child: Text(lang == 'de' ? '$streak TAG${streak == 1 ? '' : 'E'} STREAK' : '$streak DAY${streak == 1 ? '' : 'S'} STREAK', style: labelStyle),
             ),
           ],
         ],

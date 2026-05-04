@@ -234,4 +234,74 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('vibration_enabled', v);
   }
+
+  // ─── Accent Color ──────────────────────────────────────────────────────────
+
+  static Future<int> loadAccentColor() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('accent_color') ?? 0xFFFFBF00;
+  }
+
+  static Future<void> saveAccentColor(int v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('accent_color', v);
+  }
+
+  // ─── ORP Highlight ─────────────────────────────────────────────────────────
+
+  static Future<bool> loadHighlightOrp() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('highlight_orp') ?? true;
+  }
+
+  static Future<void> saveHighlightOrp(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('highlight_orp', v);
+  }
+
+  // ─── Font Family ───────────────────────────────────────────────────────────
+
+  static Future<String> loadFontFamily() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('font_family') ?? 'jetbrains_mono';
+  }
+
+  static Future<void> saveFontFamily(String v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('font_family', v);
+  }
+
+  // ─── App Language ──────────────────────────────────────────────────────────
+
+  static Future<String> loadAppLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('app_language') ?? 'en';
+  }
+
+  static Future<void> saveAppLanguage(String v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('app_language', v);
+  }
+
+  // ─── Streak Notification ───────────────────────────────────────────────────
+
+  static Future<bool> loadStreakNotificationEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('streak_notification_enabled') ?? false;
+  }
+
+  static Future<void> saveStreakNotificationEnabled(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('streak_notification_enabled', v);
+  }
+
+  static Future<int> loadStreakNotificationHour() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('streak_notification_hour') ?? 20;
+  }
+
+  static Future<void> saveStreakNotificationHour(int v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('streak_notification_hour', v);
+  }
 }

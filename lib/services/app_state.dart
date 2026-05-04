@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:vibration/vibration.dart';
 import '../models/book.dart';
 import 'epub_parser.dart';
+import 'notification_service.dart';
 import 'pdf_parser.dart';
 import 'rsvp_service.dart';
 import 'storage_service.dart';
@@ -39,6 +40,12 @@ class AppState extends ChangeNotifier {
   int _streak = 0;
   bool _isDarkMode = true;
   bool _vibrationEnabled = false;
+  Color _accentColor = const Color(0xFFFFBF00);
+  bool _highlightOrp = true;
+  String _fontFamily = 'jetbrains_mono';
+  String _appLanguage = 'en';
+  bool _streakNotificationEnabled = false;
+  int _streakNotificationHour = 20;
 
   // ─── Streak Mode ───────────────────────────────────────────────────────────
   static const List<int> _goals = [500, 1000, 1500, 2000, 3000, 5000];
@@ -60,6 +67,12 @@ class AppState extends ChangeNotifier {
   int? get pendingMilestone => _pendingMilestone;
   bool get isDarkMode => _isDarkMode;
   bool get vibrationEnabled => _vibrationEnabled;
+  Color get accentColor => _accentColor;
+  bool get highlightOrp => _highlightOrp;
+  String get fontFamily => _fontFamily;
+  String get appLanguage => _appLanguage;
+  bool get streakNotificationEnabled => _streakNotificationEnabled;
+  int get streakNotificationHour => _streakNotificationHour;
 
   static int _tierEnd(int tier) {
     if (tier < _goals.length) return _goals[tier];
@@ -100,6 +113,12 @@ class AppState extends ChangeNotifier {
     _dailyGoalTier = await StorageService.loadGoalTierForToday();
     _isDarkMode = await StorageService.loadThemeMode();
     _vibrationEnabled = await StorageService.loadVibrationEnabled();
+    _accentColor = Color(await StorageService.loadAccentColor());
+    _highlightOrp = await StorageService.loadHighlightOrp();
+    _fontFamily = await StorageService.loadFontFamily();
+    _appLanguage = await StorageService.loadAppLanguage();
+    _streakNotificationEnabled = await StorageService.loadStreakNotificationEnabled();
+    _streakNotificationHour = await StorageService.loadStreakNotificationHour();
     while (_dailyWordsRead >= _tierEnd(_dailyGoalTier)) {
       _dailyGoalTier++;
     }
@@ -397,6 +416,50 @@ class AppState extends ChangeNotifier {
   void setVibrationEnabled(bool v) {
     _vibrationEnabled = v;
     StorageService.saveVibrationEnabled(v);
+    notifyListeners();
+  }
+
+  void setAccentColor(Color v) {
+    _accentColor = v;
+    StorageService.saveAccentColor(v.toARGB32());
+    notifyListeners();
+  }
+
+  void setHighlightOrp(bool v) {
+    _highlightOrp = v;
+    StorageService.saveHighlightOrp(v);
+    notifyListeners();
+  }
+
+  void setFontFamily(String v) {
+    _fontFamily = v;
+    StorageService.saveFontFamily(v);
+    notifyListeners();
+  }
+
+  void setAppLanguage(String v) {
+    _appLanguage = v;
+    StorageService.saveAppLanguage(v);
+    notifyListeners();
+  }
+
+  void setStreakNotificationEnabled(bool v) {
+    _streakNotificationEnabled = v;
+    StorageService.saveStreakNotificationEnabled(v);
+    if (v) {
+      NotificationService.scheduleStreakReminder(_streakNotificationHour, _appLanguage);
+    } else {
+      NotificationService.cancelStreakReminder();
+    }
+    notifyListeners();
+  }
+
+  void setStreakNotificationHour(int v) {
+    _streakNotificationHour = v.clamp(0, 23);
+    StorageService.saveStreakNotificationHour(_streakNotificationHour);
+    if (_streakNotificationEnabled) {
+      NotificationService.scheduleStreakReminder(_streakNotificationHour, _appLanguage);
+    }
     notifyListeners();
   }
 
