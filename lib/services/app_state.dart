@@ -39,13 +39,16 @@ class AppState extends ChangeNotifier {
   int _totalWordsRead = 0;
   int _streak = 0;
   bool _isDarkMode = true;
-  bool _vibrationEnabled = false;
+  bool _vibrationEnabled = true;
   Color _accentColor = const Color(0xFFFFBF00);
   bool _highlightOrp = true;
   String _fontFamily = 'jetbrains_mono';
   String _appLanguage = 'en';
   bool _streakNotificationEnabled = false;
   int _streakNotificationHour = 20;
+  bool _slowStart = true;
+  int _sessionWordCount = 0;
+  DateTime? _sessionStartTime;
 
   // ─── Streak Mode ───────────────────────────────────────────────────────────
   static const List<int> _goals = [500, 1000, 1500, 2000, 3000, 5000];
@@ -73,6 +76,7 @@ class AppState extends ChangeNotifier {
   String get appLanguage => _appLanguage;
   bool get streakNotificationEnabled => _streakNotificationEnabled;
   int get streakNotificationHour => _streakNotificationHour;
+  bool get slowStart => _slowStart;
 
   static int _tierEnd(int tier) {
     if (tier < _goals.length) return _goals[tier];
@@ -119,6 +123,7 @@ class AppState extends ChangeNotifier {
     _appLanguage = await StorageService.loadAppLanguage();
     _streakNotificationEnabled = await StorageService.loadStreakNotificationEnabled();
     _streakNotificationHour = await StorageService.loadStreakNotificationHour();
+    _slowStart = await StorageService.loadSlowStart();
     while (_dailyWordsRead >= _tierEnd(_dailyGoalTier)) {
       _dailyGoalTier++;
     }
@@ -236,6 +241,8 @@ class AppState extends ChangeNotifier {
   void play() {
     if (_words.isEmpty) return;
     _isPlaying = true;
+    _sessionWordCount = 0;
+    _sessionStartTime = DateTime.now();
     _scheduleNext();
     _vibrate(duration: 30);
     notifyListeners();
@@ -271,6 +278,20 @@ class AppState extends ChangeNotifier {
     await StorageService.addWordsReadToday(count);
     _totalWordsRead += count;
     _streak = await StorageService.loadStreak();
+    if (_sessionStartTime != null && _activeBook != null) {
+      final durationMs = DateTime.now().difference(_sessionStartTime!).inMilliseconds;
+      if (durationMs > 0) {
+        final effectiveWpm = (count / durationMs * 60000).round();
+        if (effectiveWpm > 0 && effectiveWpm < 2000) {
+          await StorageService.saveWpmSession(
+            wpm: effectiveWpm,
+            words: count,
+            bookId: _activeBook!.id,
+          );
+        }
+      }
+      _sessionStartTime = null;
+    }
     notifyListeners();
   }
 
@@ -291,17 +312,25 @@ class AppState extends ChangeNotifier {
     }
     final word = _words[_wordIndex];
     final base = RsvpService.wpmToMs(_wpm);
-    final duration = RsvpService.getWordDuration(word, base, _adaptivePause);
+    int effectiveBase = base;
+    if (_slowStart && _sessionWordCount < 20) {
+      final factor = 2.0 - (_sessionWordCount / 20.0);
+      effectiveBase = (base * factor).round();
+    }
+    final duration = RsvpService.getWordDuration(word, effectiveBase, _adaptivePause);
 
     _timer = Timer(Duration(milliseconds: duration), () {
       if (!_isPlaying) return;
       _wordIndex++;
       _sessionWordsRead++;
+      _sessionWordCount++;
       _dailyWordsRead++;
       if (_wordIndex >= _words.length) {
         _isPlaying = false;
         _wordIndex = _words.length - 1;
+        _vibrate(pattern: [0, 80, 100, 180]);
         _saveProgress();
+        _flushSessionWords();
         notifyListeners();
         return;
       }
@@ -380,6 +409,7 @@ class AppState extends ChangeNotifier {
   void setWpm(int v) {
     _wpm = v;
     StorageService.saveWpm(v);
+    _vibrate(duration: 15);
     notifyListeners();
   }
 
@@ -451,6 +481,12 @@ class AppState extends ChangeNotifier {
     } else {
       NotificationService.cancelStreakReminder();
     }
+    notifyListeners();
+  }
+
+  void setSlowStart(bool v) {
+    _slowStart = v;
+    StorageService.saveSlowStart(v);
     notifyListeners();
   }
 

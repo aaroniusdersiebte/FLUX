@@ -17,6 +17,8 @@ class _L10n {
       'WPM': 'WPM',
       'ADAPTIVE_PAUSE': 'ADAPTIVE PAUSE',
       'ADAPTIVE_PAUSE_SUB': 'Längere Pausen bei langen Wörtern & Satzzeichen',
+      'SLOW_START': 'LANGSAMER START',
+      'SLOW_START_SUB': 'Beginnt langsam, steigert sich über 20 Wörter auf Ziel-WPM',
       'DISPLAY': 'ANZEIGE',
       'FONT_SIZE': 'SCHRIFTGRÖSSE',
       'CONTEXT_WORDS': 'KONTEXTWÖRTER',
@@ -49,6 +51,8 @@ class _L10n {
       'WPM': 'WPM',
       'ADAPTIVE_PAUSE': 'ADAPTIVE PAUSE',
       'ADAPTIVE_PAUSE_SUB': 'Extra delay: long words & punctuation',
+      'SLOW_START': 'SLOW START',
+      'SLOW_START_SUB': 'Ramps up from slow to target WPM over 20 words',
       'DISPLAY': 'DISPLAY',
       'FONT_SIZE': 'FONT SIZE',
       'CONTEXT_WORDS': 'CONTEXT WORDS',
@@ -128,6 +132,14 @@ class SettingsBody extends StatelessWidget {
               subtitle: _L10n.t(l, 'ADAPTIVE_PAUSE_SUB'),
               value: state.adaptivePause,
               onChanged: state.setAdaptivePause,
+              colors: colors,
+            ),
+            const SizedBox(height: 16),
+            _Toggle(
+              label: _L10n.t(l, 'SLOW_START'),
+              subtitle: _L10n.t(l, 'SLOW_START_SUB'),
+              value: state.slowStart,
+              onChanged: state.setSlowStart,
               colors: colors,
             ),
             _divider(colors),
@@ -555,6 +567,10 @@ class _FontPicker extends StatelessWidget {
     ('space_mono', 'Space'),
     ('fira_code', 'Fira'),
     ('ibm_plex_mono', 'IBM Plex'),
+    ('inconsolata', 'Inconsolata'),
+    ('anonymous_pro', 'Anonymous'),
+    ('share_tech_mono', 'Share Tech'),
+    ('overpass_mono', 'Overpass'),
   ];
 
   const _FontPicker({

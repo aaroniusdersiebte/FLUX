@@ -145,6 +145,34 @@ class AppFont {
             fontWeight: weight,
             height: height,
             letterSpacing: letterSpacing);
+      case 'inconsolata':
+        return GoogleFonts.inconsolata(
+            color: color,
+            fontSize: fontSize,
+            fontWeight: weight,
+            height: height,
+            letterSpacing: letterSpacing);
+      case 'anonymous_pro':
+        return GoogleFonts.anonymousPro(
+            color: color,
+            fontSize: fontSize,
+            fontWeight: weight,
+            height: height,
+            letterSpacing: letterSpacing);
+      case 'share_tech_mono':
+        return GoogleFonts.shareTechMono(
+            color: color,
+            fontSize: fontSize,
+            fontWeight: weight,
+            height: height,
+            letterSpacing: letterSpacing);
+      case 'overpass_mono':
+        return GoogleFonts.overpassMono(
+            color: color,
+            fontSize: fontSize,
+            fontWeight: weight,
+            height: height,
+            letterSpacing: letterSpacing);
       default: // jetbrains_mono
         return GoogleFonts.jetBrainsMono(
             color: color,

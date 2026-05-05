@@ -227,7 +227,7 @@ class StorageService {
 
   static Future<bool> loadVibrationEnabled() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('vibration_enabled') ?? false;
+    return prefs.getBool('vibration_enabled') ?? true;
   }
 
   static Future<void> saveVibrationEnabled(bool v) async {
@@ -303,5 +303,41 @@ class StorageService {
   static Future<void> saveStreakNotificationHour(int v) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('streak_notification_hour', v);
+  }
+
+  // ─── Slow Start ────────────────────────────────────────────────────────────
+
+  static Future<bool> loadSlowStart() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('slow_start') ?? true;
+  }
+
+  static Future<void> saveSlowStart(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('slow_start', v);
+  }
+
+  // ─── WPM Sessions ──────────────────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> loadWpmSessions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('wpm_sessions');
+    if (raw == null) return [];
+    final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  static Future<void> saveWpmSession({
+    required int wpm,
+    required int words,
+    required String bookId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('wpm_sessions');
+    final List<dynamic> list = raw != null ? jsonDecode(raw) as List<dynamic> : [];
+    list.add({'ts': DateTime.now().millisecondsSinceEpoch, 'wpm': wpm, 'words': words, 'bookId': bookId});
+    // Keep only last 200 sessions
+    final trimmed = list.length > 200 ? list.sublist(list.length - 200) : list;
+    await prefs.setString('wpm_sessions', jsonEncode(trimmed));
   }
 }

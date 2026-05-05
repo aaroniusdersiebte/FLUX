@@ -14,6 +14,16 @@ class _L10n {
       'TOTAL_LABEL': 'GESAMT GELESEN',
       'WORDS': 'WÖRTER',
       'NO_DATA': 'noch keine Lesedaten',
+      'WPM_TREND': 'WPM-VERLAUF',
+      'WPM_NO_DATA': 'noch keine Sessions aufgezeichnet',
+      'RECORDS': 'REKORDE',
+      'FASTEST': 'SCHNELLSTE SESSION',
+      'LONGEST': 'LÄNGSTE SESSION',
+      'READ_TIME': 'LESEZEIT',
+      'TOTAL_HOURS': 'GESAMT',
+      'AVG_DAILY': 'Ø PRO TAG (7 TAGE)',
+      'HOURS': 'Std.',
+      'MIN': 'Min.',
     },
     'en': {
       'LAST_7': 'LAST 7 DAYS',
@@ -21,6 +31,16 @@ class _L10n {
       'TOTAL_LABEL': 'TOTAL READ',
       'WORDS': 'WORDS',
       'NO_DATA': 'no reading data yet',
+      'WPM_TREND': 'WPM TREND',
+      'WPM_NO_DATA': 'no sessions recorded yet',
+      'RECORDS': 'RECORDS',
+      'FASTEST': 'FASTEST SESSION',
+      'LONGEST': 'LONGEST SESSION',
+      'READ_TIME': 'READING TIME',
+      'TOTAL_HOURS': 'TOTAL',
+      'AVG_DAILY': 'AVG / DAY (7 DAYS)',
+      'HOURS': 'h',
+      'MIN': 'min',
     },
   };
 
@@ -59,6 +79,7 @@ class AnalyticsBody extends StatefulWidget {
 
 class _AnalyticsBodyState extends State<AnalyticsBody> {
   Map<String, int> _dailyStats = {};
+  List<Map<String, dynamic>> _wpmSessions = [];
   int _streak = 0;
   bool _loading = true;
 
@@ -71,13 +92,20 @@ class _AnalyticsBodyState extends State<AnalyticsBody> {
   @override
   void didUpdateWidget(AnalyticsBody old) {
     super.didUpdateWidget(old);
-    // Reload if language changes (no data reload needed, just rebuild)
   }
 
   Future<void> _load() async {
     final stats = await StorageService.loadDailyStats();
     final streak = await StorageService.loadStreak();
-    if (mounted) setState(() { _dailyStats = stats; _streak = streak; _loading = false; });
+    final sessions = await StorageService.loadWpmSessions();
+    if (mounted) {
+      setState(() {
+        _dailyStats = stats;
+        _streak = streak;
+        _wpmSessions = sessions;
+        _loading = false;
+      });
+    }
   }
 
   int get _totalWords => _dailyStats.values.fold(0, (s, v) => s + v);
@@ -105,6 +133,24 @@ class _AnalyticsBodyState extends State<AnalyticsBody> {
     final total = _totalWords;
     final maxCount = days.map((d) => d.count).fold(0, (a, b) => a > b ? a : b);
     final lang = widget.lang;
+    final sessions = _wpmSessions;
+
+    // Records
+    Map<String, dynamic>? fastestSession;
+    Map<String, dynamic>? longestSession;
+    for (final s in sessions) {
+      if (fastestSession == null || (s['wpm'] as int) > (fastestSession['wpm'] as int)) fastestSession = s;
+      if (longestSession == null || (s['words'] as int) > (longestSession['words'] as int)) longestSession = s;
+    }
+
+    // Reading time
+    final totalWords = _totalWords;
+    final avgWpm = sessions.isEmpty
+        ? 250
+        : (sessions.map((s) => s['wpm'] as int).fold(0, (a, b) => a + b) / sessions.length).round();
+    final totalMinutes = avgWpm > 0 ? (totalWords / avgWpm) : 0.0;
+    final last7Words = days.fold(0, (s, d) => s + d.count);
+    final avgDailyMinutes = avgWpm > 0 ? (last7Words / 7 / avgWpm) : 0.0;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
@@ -122,6 +168,74 @@ class _AnalyticsBodyState extends State<AnalyticsBody> {
         const SizedBox(height: 32),
         Divider(color: colors.border, height: 1),
         const SizedBox(height: 24),
+
+        // ── WPM-Trend ──────────────────────────────────────────────────────
+        Text(_L10n.t(lang, 'WPM_TREND'),
+            style: AppFont.get(colors.fontFamily,
+                color: colors.amber, fontSize: 10, letterSpacing: 3.5, weight: FontWeight.w700)),
+        const SizedBox(height: 16),
+        if (sessions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(_L10n.t(lang, 'WPM_NO_DATA'),
+                style: AppFont.get(colors.fontFamily, color: colors.textMuted, fontSize: 11)),
+          )
+        else
+          SizedBox(
+            height: 160,
+            child: _WpmLineChart(sessions: sessions.length > 20 ? sessions.sublist(sessions.length - 20) : sessions, colors: colors),
+          ),
+        const SizedBox(height: 32),
+        Divider(color: colors.border, height: 1),
+        const SizedBox(height: 24),
+
+        // ── Rekorde ────────────────────────────────────────────────────────
+        Text(_L10n.t(lang, 'RECORDS'),
+            style: AppFont.get(colors.fontFamily,
+                color: colors.amber, fontSize: 10, letterSpacing: 3.5, weight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        if (fastestSession != null)
+          _RecordRow(
+            label: _L10n.t(lang, 'FASTEST'),
+            value: '${fastestSession['wpm']} wpm',
+            colors: colors,
+          ),
+        if (longestSession != null)
+          _RecordRow(
+            label: _L10n.t(lang, 'LONGEST'),
+            value: '${longestSession['words']} ${_L10n.t(lang, 'WORDS').toLowerCase()}',
+            colors: colors,
+          ),
+        if (sessions.isEmpty)
+          Text('—', style: AppFont.get(colors.fontFamily, color: colors.textMuted, fontSize: 11)),
+        const SizedBox(height: 32),
+        Divider(color: colors.border, height: 1),
+        const SizedBox(height: 24),
+
+        // ── Lesezeit ───────────────────────────────────────────────────────
+        Text(_L10n.t(lang, 'READ_TIME'),
+            style: AppFont.get(colors.fontFamily,
+                color: colors.amber, fontSize: 10, letterSpacing: 3.5, weight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        _ReadTimeRow(
+          label: _L10n.t(lang, 'TOTAL_HOURS'),
+          value: totalMinutes >= 60
+              ? '${(totalMinutes / 60).toStringAsFixed(1)} ${_L10n.t(lang, 'HOURS')}'
+              : '${totalMinutes.toStringAsFixed(0)} ${_L10n.t(lang, 'MIN')}',
+          colors: colors,
+        ),
+        _ReadTimeRow(
+          label: _L10n.t(lang, 'AVG_DAILY'),
+          value: avgDailyMinutes >= 60
+              ? '${(avgDailyMinutes / 60).toStringAsFixed(1)} ${_L10n.t(lang, 'HOURS')}'
+              : '${avgDailyMinutes.toStringAsFixed(0)} ${_L10n.t(lang, 'MIN')}',
+          colors: colors,
+        ),
+        const SizedBox(height: 32),
+        Divider(color: colors.border, height: 1),
+        const SizedBox(height: 24),
+
+        // ── Tagesverlauf ───────────────────────────────────────────────────
         Text(_L10n.t(lang, 'DAILY'),
             style: AppFont.get(colors.fontFamily,
                 color: colors.amber, fontSize: 10, letterSpacing: 3.5, weight: FontWeight.w700)),
@@ -319,6 +433,130 @@ class _DayRow extends StatelessWidget {
           const SizedBox(width: 12),
           Text('${stat.count} W',
               style: AppFont.get(colors.fontFamily, color: colors.textPrimary, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── WPM Line Chart ───────────────────────────────────────────────────────────
+
+class _WpmLineChart extends StatelessWidget {
+  final List<Map<String, dynamic>> sessions;
+  final AppColors colors;
+  const _WpmLineChart({required this.sessions, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _WpmLinePainter(sessions: sessions, colors: colors),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _WpmLinePainter extends CustomPainter {
+  final List<Map<String, dynamic>> sessions;
+  final AppColors colors;
+  const _WpmLinePainter({required this.sessions, required this.colors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (sessions.isEmpty) return;
+
+    const bottomPad = 20.0;
+    const topPad = 12.0;
+    const leftPad = 36.0;
+    final chartW = size.width - leftPad;
+    final chartH = size.height - bottomPad - topPad;
+
+    final wpms = sessions.map((s) => s['wpm'] as int).toList();
+    final maxWpm = wpms.fold(0, (a, b) => a > b ? a : b);
+    final minWpm = wpms.fold(maxWpm, (a, b) => a < b ? a : b);
+    final range = (maxWpm - minWpm).clamp(50, 9999);
+
+    final gridPaint = Paint()..color = colors.border..strokeWidth = 0.5;
+    final linePaint = Paint()
+      ..color = colors.amber
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final dotPaint = Paint()..color = colors.amber;
+
+    // Grid lines (3 horizontal)
+    for (int i = 0; i <= 2; i++) {
+      final y = topPad + chartH * (1 - i / 2);
+      canvas.drawLine(Offset(leftPad, y), Offset(size.width, y), gridPaint);
+      final wpmLabel = (minWpm + range * i / 2).round().toString();
+      final tp = TextPainter(
+        text: TextSpan(
+          text: wpmLabel,
+          style: AppFont.get(colors.fontFamily, color: colors.textMuted, fontSize: 8),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(0, y - tp.height / 2));
+    }
+
+    // Line + dots
+    final path = Path();
+    for (int i = 0; i < sessions.length; i++) {
+      final wpm = sessions[i]['wpm'] as int;
+      final x = leftPad + (chartW * i / (sessions.length - 1).clamp(1, 9999));
+      final y = topPad + chartH * (1 - (wpm - minWpm) / range);
+      if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
+      canvas.drawCircle(Offset(x, y), 2.5, dotPaint);
+    }
+    canvas.drawPath(path, linePaint);
+  }
+
+  @override
+  bool shouldRepaint(_WpmLinePainter old) => old.sessions != sessions || old.colors != colors;
+}
+
+// ─── Record Row ───────────────────────────────────────────────────────────────
+
+class _RecordRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final AppColors colors;
+  const _RecordRow({required this.label, required this.value, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(child: Text(label,
+              style: AppFont.get(colors.fontFamily, color: colors.textMuted, fontSize: 11))),
+          Text(value,
+              style: AppFont.get(colors.fontFamily, color: colors.textPrimary,
+                  fontSize: 12, weight: FontWeight.w600, letterSpacing: 0.5)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Read Time Row ────────────────────────────────────────────────────────────
+
+class _ReadTimeRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final AppColors colors;
+  const _ReadTimeRow({required this.label, required this.value, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(child: Text(label,
+              style: AppFont.get(colors.fontFamily, color: colors.textMuted, fontSize: 11))),
+          Text(value,
+              style: AppFont.get(colors.fontFamily, color: colors.amber,
+                  fontSize: 12, weight: FontWeight.w600, letterSpacing: 0.5)),
         ],
       ),
     );
