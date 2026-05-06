@@ -86,8 +86,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 _PageHeader(
                   currentPage: _currentPage,
                   colors: colors,
-                  onLeft: () => _goToPage(0),
-                  onRight: () => _goToPage(2),
+                  onLeft: () => _goToPage(_currentPage - 1),
+                  onRight: () => _goToPage(_currentPage + 1),
                 ),
                 Expanded(
                   child: PageView(
@@ -290,7 +290,7 @@ class _PageHeader extends StatelessWidget {
           child: Row(
             children: [
               _NavArrow(
-                label: '◀',
+                label: '[<]',
                 onTap: onLeft,
                 active: currentPage != 0,
                 colors: colors,
@@ -310,7 +310,7 @@ class _PageHeader extends StatelessWidget {
                 ),
               ),
               _NavArrow(
-                label: '▶',
+                label: '[>]',
                 onTap: onRight,
                 active: currentPage != 2,
                 colors: colors,
