@@ -1,6 +1,6 @@
 # FLUX — Terminal-style RSVP speed reading app
 
-![FLUX Logo](../logo.png) *(Placeholder for Logo)*
+![FLUX Logo](logo.png) 
 
 **FLUX** is a high-performance, minimalist Android application built with Flutter, designed for Rapid Serial Visual Presentation (RSVP) speed reading. It features a distinct "Terminal" aesthetic with deep blacks, sharp white text, and striking amber accents.
 
