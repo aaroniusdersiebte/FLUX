@@ -16,7 +16,8 @@ class RsvpScreen extends StatefulWidget {
   State<RsvpScreen> createState() => _RsvpScreenState();
 }
 
-class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
+class _RsvpScreenState extends State<RsvpScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _showPauseOverlay = false;
   bool _isDecrypting = false;
   bool _showMilestone = false;
@@ -33,6 +34,7 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _appState = context.read<AppState>();
+    WidgetsBinding.instance.addObserver(this);
     _milestoneAnim = AnimationController(
       duration: const Duration(milliseconds: 2800),
       vsync: this,
@@ -52,7 +54,16 @@ class _RsvpScreenState extends State<RsvpScreen> with TickerProviderStateMixin {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _appState.pause();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _appState.removeListener(_checkMilestone);
     _milestoneAnim.dispose();
     _wpmFeedbackTimer?.cancel();

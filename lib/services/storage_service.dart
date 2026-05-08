@@ -317,6 +317,18 @@ class StorageService {
     await prefs.setBool('slow_start', v);
   }
 
+  // ─── Tutorial ──────────────────────────────────────────────────────────────
+
+  static Future<bool> loadTutorialDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('tutorial_done') ?? false;
+  }
+
+  static Future<void> saveTutorialDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('tutorial_done', true);
+  }
+
   // ─── WPM Sessions ──────────────────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> loadWpmSessions() async {

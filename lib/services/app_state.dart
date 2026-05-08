@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:vibration/vibration.dart';
@@ -47,6 +48,7 @@ class AppState extends ChangeNotifier {
   bool _streakNotificationEnabled = false;
   int _streakNotificationHour = 20;
   bool _slowStart = true;
+  bool _tutorialDone = false;
   int _sessionWordCount = 0;
   DateTime? _sessionStartTime;
 
@@ -77,6 +79,7 @@ class AppState extends ChangeNotifier {
   bool get streakNotificationEnabled => _streakNotificationEnabled;
   int get streakNotificationHour => _streakNotificationHour;
   bool get slowStart => _slowStart;
+  bool get tutorialDone => _tutorialDone;
 
   static int _tierEnd(int tier) {
     if (tier < _goals.length) return _goals[tier];
@@ -124,6 +127,7 @@ class AppState extends ChangeNotifier {
     _streakNotificationEnabled = await StorageService.loadStreakNotificationEnabled();
     _streakNotificationHour = await StorageService.loadStreakNotificationHour();
     _slowStart = await StorageService.loadSlowStart();
+    _tutorialDone = await StorageService.loadTutorialDone();
     while (_dailyWordsRead >= _tierEnd(_dailyGoalTier)) {
       _dailyGoalTier++;
     }
@@ -314,7 +318,9 @@ class AppState extends ChangeNotifier {
     final base = RsvpService.wpmToMs(_wpm);
     int effectiveBase = base;
     if (_slowStart && _sessionWordCount < 20) {
-      final factor = 2.0 - (_sessionWordCount / 20.0);
+      final t = _sessionWordCount / 20.0;
+      final eased = 1.0 - math.pow(1.0 - t, 3).toDouble();
+      final factor = 2.0 - eased;
       effectiveBase = (base * factor).round();
     }
     final duration = RsvpService.getWordDuration(word, effectiveBase, _adaptivePause);
@@ -489,6 +495,14 @@ class AppState extends ChangeNotifier {
     StorageService.saveSlowStart(v);
     notifyListeners();
   }
+
+  void setTutorialDone() {
+    _tutorialDone = true;
+    StorageService.saveTutorialDone();
+    notifyListeners();
+  }
+
+  void vibrateBack() => _vibrate(duration: 25);
 
   void setStreakNotificationHour(int v) {
     _streakNotificationHour = v.clamp(0, 23);

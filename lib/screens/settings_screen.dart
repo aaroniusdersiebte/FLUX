@@ -6,6 +6,7 @@ import '../services/rsvp_service.dart';
 import '../theme/terminal_theme.dart';
 import '../widgets/amber_slider.dart';
 import '../widgets/rsvp_display.dart';
+import 'tutorial_screen.dart';
 
 // ─── Localization ─────────────────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ class _L10n {
       'LANGUAGE': 'SPRACHE',
       'LANGUAGE_SUB': 'Einstellungen auf Englisch anzeigen',
       'ABOUT': 'INFO',
+      'TUTORIAL': 'TUTORIAL',
+      'TUTORIAL_SUB': 'Steuerung erneut anzeigen',
       'CUSTOM_COLOR_TITLE': 'FARBE WÄHLEN',
       'APPLY': 'ÜBERNEHMEN',
       'CANCEL': 'ABBRECHEN',
@@ -75,6 +78,8 @@ class _L10n {
       'LANGUAGE': 'LANGUAGE',
       'LANGUAGE_SUB': 'Show settings in German',
       'ABOUT': 'ABOUT',
+      'TUTORIAL': 'TUTORIAL',
+      'TUTORIAL_SUB': 'Show controls guide again',
       'CUSTOM_COLOR_TITLE': 'PICK COLOR',
       'APPLY': 'APPLY',
       'CANCEL': 'CANCEL',
@@ -254,6 +259,48 @@ class SettingsBody extends StatelessWidget {
               value: l == 'en',
               onChanged: (v) => state.setAppLanguage(v ? 'en' : 'de'),
               colors: colors,
+            ),
+            _divider(colors),
+
+            // ── Tutorial ───────────────────────────────────────────────────
+            _divider(colors),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  fullscreenDialog: true,
+                  builder: (_) => const TutorialScreen(),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _L10n.t(l, 'TUTORIAL'),
+                          style: AppFont.get(colors.fontFamily,
+                              color: colors.textPrimary,
+                              fontSize: 13,
+                              letterSpacing: 1.0,
+                              weight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _L10n.t(l, 'TUTORIAL_SUB'),
+                          style: AppFont.get(colors.fontFamily,
+                              color: colors.textMuted, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text('→',
+                      style: AppFont.get(colors.fontFamily,
+                          color: colors.amber, fontSize: 16)),
+                ],
+              ),
             ),
             _divider(colors),
 

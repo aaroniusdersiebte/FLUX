@@ -136,7 +136,12 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
               .addPostFrameCallback((_) => _scrollToHighlight(jump: false));
         }
 
-        return Scaffold(
+        return PopScope(
+          canPop: true,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) ctx.read<AppState>().vibrateBack();
+          },
+          child: Scaffold(
           appBar: AppBar(
             title: Text(book?.title.toUpperCase() ?? ''),
             actions: [
@@ -174,6 +179,7 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
           bottomSheet: _RsvpButton(
             colors: colors,
             onTap: () => _onWordTap(context.read<AppState>(), wordIdx),
+          ),
           ),
         );
       },
