@@ -49,6 +49,7 @@ class AppState extends ChangeNotifier {
   int _streakNotificationHour = 20;
   bool _slowStart = true;
   bool _tutorialDone = false;
+  int _tutorialStep = -1; // -1 = not active
   int _sessionWordCount = 0;
   DateTime? _sessionStartTime;
 
@@ -80,6 +81,8 @@ class AppState extends ChangeNotifier {
   int get streakNotificationHour => _streakNotificationHour;
   bool get slowStart => _slowStart;
   bool get tutorialDone => _tutorialDone;
+  bool get isTutorialActive => _tutorialStep >= 0;
+  int get tutorialStep => _tutorialStep;
 
   static int _tierEnd(int tier) {
     if (tier < _goals.length) return _goals[tier];
@@ -276,7 +279,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _flushSessionWords() async {
-    if (_sessionWordsRead <= 0) return;
+    if (_sessionWordsRead <= 0 || _activeBook?.id == '__demo__') return;
     final count = _sessionWordsRead;
     _sessionWordsRead = 0;
     await StorageService.addWordsReadToday(count);
@@ -374,7 +377,7 @@ class AppState extends ChangeNotifier {
   void nextParagraph() => seekToWord(RsvpService.nextParagraphStart(_words, _wordIndex));
 
   Future<void> _saveProgress() async {
-    if (_activeBook == null) return;
+    if (_activeBook == null || _activeBook!.id == '__demo__') return;
     _activeBook = _activeBook!.copyWith(wordIndex: _wordIndex);
     final idx = _books.indexWhere((b) => b.id == _activeBook!.id);
     if (idx >= 0) {
@@ -496,13 +499,68 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void vibrateBack() => _vibrate(duration: 25);
+
+  // ─── Tutorial ──────────────────────────────────────────────────────────────
+
+  static const String _demoText =
+      'FLUX Speed Reading. Welcome. RSVP stands for Rapid Serial Visual '
+      'Presentation. Words appear one at a time at a fixed focal point. '
+      'Your eyes stay still. Your brain reads faster. Scientists found that '
+      'most reading time is wasted on eye movement. You scan across a page '
+      'left to right again and again. FLUX removes that wasted motion. '
+      'You focus on a single spot. Words flow to you instead. Start at two '
+      'hundred words per minute. That feels comfortable. Three hundred feels '
+      'fast. Four hundred feels intense. Five hundred once felt impossible. '
+      'It no longer does. Your brain adapts. Every session makes you sharper. '
+      'Swipe left to jump back one sentence. Swipe right to jump one sentence '
+      'forward. Swipe up to read faster. Swipe down to slow down. Tap once to '
+      'pause. Tap again to continue. The more you practice the more natural it '
+      'becomes. Speed reading is a skill. Skills can be trained. You are '
+      'already reading faster than before. Welcome to FLUX.';
+
+  void openDemoBook() {
+    final words = _demoText
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    _activeBook = Book(
+      id: '__demo__',
+      title: 'FLUX DEMO',
+      author: 'FLUX',
+      filePath: '',
+      format: 'txt',
+      totalWords: words.length,
+      wordIndex: 0,
+      importedAt: DateTime.now(),
+    );
+    _words = words;
+    _wordIndex = 0;
+    notifyListeners();
+  }
+
+  void startTutorial() {
+    _tutorialStep = 0;
+    notifyListeners();
+  }
+
+  void advanceTutorial() {
+    _tutorialStep++;
+    notifyListeners();
+  }
+
+  void endTutorial() {
+    _tutorialDone = true;
+    _tutorialStep = -1;
+    StorageService.saveTutorialDone();
+    notifyListeners();
+  }
+
   void setTutorialDone() {
     _tutorialDone = true;
     StorageService.saveTutorialDone();
     notifyListeners();
   }
-
-  void vibrateBack() => _vibrate(duration: 25);
 
   void setStreakNotificationHour(int v) {
     _streakNotificationHour = v.clamp(0, 23);

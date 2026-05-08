@@ -6,7 +6,7 @@ import '../services/rsvp_service.dart';
 import '../theme/terminal_theme.dart';
 import '../widgets/amber_slider.dart';
 import '../widgets/rsvp_display.dart';
-import 'tutorial_screen.dart';
+import '../nav_key.dart';
 
 // ─── Localization ─────────────────────────────────────────────────────────────
 
@@ -266,13 +266,11 @@ class SettingsBody extends StatelessWidget {
             _divider(colors),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  fullscreenDialog: true,
-                  builder: (_) => const TutorialScreen(),
-                ),
-              ),
+              onTap: () {
+                appNavigatorKey.currentState
+                    ?.popUntil((route) => route.isFirst);
+                context.read<AppState>().startTutorial();
+              },
               child: Row(
                 children: [
                   Expanded(

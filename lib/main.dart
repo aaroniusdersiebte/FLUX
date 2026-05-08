@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'nav_key.dart';
 import 'screens/library_screen.dart';
 import 'screens/reader_screen.dart';
 import 'services/app_state.dart';
 import 'services/notification_service.dart';
 import 'theme/terminal_theme.dart';
+import 'widgets/tutorial_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,7 +53,14 @@ class FluxApp extends StatelessWidget {
           title: 'FLUX',
           debugShowCheckedModeBanner: false,
           theme: TerminalTheme.build(colors),
+          navigatorKey: appNavigatorKey,
           navigatorObservers: [ReaderScreen.routeObserver],
+          builder: (ctx, child) => Stack(
+            children: [
+              child!,
+              TutorialOverlay(colors: colors),
+            ],
+          ),
           home: const LibraryScreen(),
         );
       },

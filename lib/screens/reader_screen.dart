@@ -93,6 +93,7 @@ class _ReaderScreenState extends State<ReaderScreen> with RouteAware {
   void _onWordTap(AppState state, int wordIndex) {
     state.seekToWord(wordIndex);
     _lastKnownWordIdx = wordIndex;
+    if (state.tutorialStep == 2) state.advanceTutorial();
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -273,7 +274,7 @@ class _RsvpButton extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(
-              '▶  READ',
+              'READ  [>]',
               style: GoogleFonts.jetBrainsMono(
                   color: colors.amber,
                   fontSize: 12,

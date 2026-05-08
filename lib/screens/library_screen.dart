@@ -9,7 +9,6 @@ import '../widgets/scramble_text.dart';
 import 'analytics_screen.dart';
 import 'reader_screen.dart';
 import 'settings_screen.dart';
-import 'tutorial_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -165,13 +164,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 if (!appState.tutorialDone) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (!mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        fullscreenDialog: true,
-                        builder: (_) => const TutorialScreen(),
-                      ),
-                    );
+                    appState.startTutorial();
                   });
                 }
               },
