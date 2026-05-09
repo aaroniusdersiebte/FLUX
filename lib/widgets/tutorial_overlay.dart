@@ -13,7 +13,7 @@ class _L {
     'de': {
       'lib_title': 'BIBLIOTHEK',
       'lib_body':
-          'Das ist deine Büchersammlung.\n\nWische ←  für ANALYTIK\nWische →  für EINSTELLUNGEN',
+          'Das ist deine Büchersammlung.\n\nWische ←  für ANALYTIK\nWische →  für EINSTELLUNGEN\n\nBücher importieren über [+]:\nEPUB  ·  PDF  ·  TXT',
       'reader_title': 'VOLLTEXT-ANSICHT',
       'reader_body':
           'Tippe ein Wort um an diese Stelle zu springen.\n\nREAD [>] unten startet den Speed-Reader.',
@@ -30,7 +30,7 @@ class _L {
     'en': {
       'lib_title': 'LIBRARY',
       'lib_body':
-          'This is your book collection.\n\nSwipe ←  for ANALYTICS\nSwipe →  for SETTINGS',
+          'This is your book collection.\n\nSwipe ←  for ANALYTICS\nSwipe →  for SETTINGS\n\nImport books via [+]:\nEPUB  ·  PDF  ·  TXT',
       'reader_title': 'FULL-TEXT VIEW',
       'reader_body':
           'Tap any word to jump to that position.\n\nREAD [>] at the bottom launches the speed reader.',

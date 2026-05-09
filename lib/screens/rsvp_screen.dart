@@ -58,6 +58,7 @@ class _RsvpScreenState extends State<RsvpScreen>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       _appState.pause();
+      if (mounted) setState(() => _showPauseOverlay = true);
     }
   }
 
@@ -76,12 +77,21 @@ class _RsvpScreenState extends State<RsvpScreen>
     final m = _appState.pendingMilestone;
     if (m != null && !_showMilestone && mounted) {
       _appState.vibrateMilestone();
+      bool settled = false;
+      void listener() {
+        if (!settled && _milestoneAnim.value >= 0.43) {
+          settled = true;
+          _appState.vibrateStreakSettle();
+        }
+      }
+      _milestoneAnim.addListener(listener);
       setState(() {
         _showMilestone = true;
         _milestoneTarget = m;
         _milestoneTierStart = m > 0 ? AppState.goalTierStart(m) : 0;
       });
       _milestoneAnim.forward().then((_) {
+        _milestoneAnim.removeListener(listener);
         if (!mounted) return;
         _appState.clearMilestone();
         _appState.play();
@@ -119,6 +129,7 @@ class _RsvpScreenState extends State<RsvpScreen>
     final v = details.velocity.pixelsPerSecond;
 
     if (v.dx.abs() > v.dy.abs()) {
+      if (start != null && start.dy / _screenH > 0.85) return;
       if (v.dx < 0) {
         state.nextSentence();
       } else {

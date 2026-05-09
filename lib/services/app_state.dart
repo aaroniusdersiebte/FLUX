@@ -54,7 +54,7 @@ class AppState extends ChangeNotifier {
   DateTime? _sessionStartTime;
 
   // ─── Streak Mode ───────────────────────────────────────────────────────────
-  static const List<int> _goals = [500, 1000, 1500, 2000, 3000, 5000];
+  static const List<int> _goals = [500, 1000];
   bool _streakModeEnabled = true;
   int _dailyWordsRead = 0;
   int _dailyGoalTier = 0;
@@ -86,7 +86,7 @@ class AppState extends ChangeNotifier {
 
   static int _tierEnd(int tier) {
     if (tier < _goals.length) return _goals[tier];
-    return 5000 * (tier - _goals.length + 2);
+    return 1000 * tier; // tier 2→2000, tier 3→3000, ...
   }
 
   double get goalProgress {
@@ -99,7 +99,7 @@ class AppState extends ChangeNotifier {
     final idx = _goals.indexOf(milestoneTarget);
     if (idx > 0) return _goals[idx - 1];
     if (idx == 0) return 0;
-    return milestoneTarget - 5000;
+    return milestoneTarget - 1000; // 2000→1000, 3000→2000, ...
   }
 
   bool _loading = false;
@@ -265,6 +265,7 @@ class AppState extends ChangeNotifier {
   }
 
   void vibrateMilestone() => _vibrate(pattern: [0, 80, 60, 80]);
+  void vibrateStreakSettle() => _vibrate(duration: 50);
 
   void _vibrate({int? duration, List<int>? pattern}) {
     if (!_vibrationEnabled) return;
@@ -503,7 +504,7 @@ class AppState extends ChangeNotifier {
 
   // ─── Tutorial ──────────────────────────────────────────────────────────────
 
-  static const String _demoText =
+  static const String _demoTextEn =
       'FLUX Speed Reading. Welcome. RSVP stands for Rapid Serial Visual '
       'Presentation. Words appear one at a time at a fixed focal point. '
       'Your eyes stay still. Your brain reads faster. Scientists found that '
@@ -519,8 +520,28 @@ class AppState extends ChangeNotifier {
       'becomes. Speed reading is a skill. Skills can be trained. You are '
       'already reading faster than before. Welcome to FLUX.';
 
+  static const String _demoTextDe =
+      'FLUX Schnell-Lesen. Willkommen. RSVP steht für Rapid Serial Visual '
+      'Presentation. Wörter erscheinen einzeln an einem festen Fokuspunkt. '
+      'Deine Augen bleiben still. Dein Gehirn liest schneller. Wissenschaftler '
+      'haben herausgefunden dass die meiste Lesezeit durch Augenbewegungen '
+      'verschwendet wird. Du scannst eine Seite immer wieder von links nach '
+      'rechts. FLUX entfernt diese Bewegung. Du fokussierst auf einen einzigen '
+      'Punkt. Die Wörter fließen zu dir hin. Starte mit zweihundert Wörtern '
+      'pro Minute. Das fühlt sich angenehm an. Dreihundert fühlt sich schnell '
+      'an. Vierhundert fühlt sich intensiv an. Fünfhundert schien einmal '
+      'unmöglich. Das ist nicht länger so. Dein Gehirn passt sich an. Jede '
+      'Sitzung macht dich schärfer. Wische nach links um einen Satz zurück zu '
+      'springen. Wische nach rechts um einen Satz vorwärts zu springen. Wische '
+      'nach oben um schneller zu lesen. Wische nach unten um langsamer zu '
+      'werden. Tippe einmal zum Pausieren. Tippe erneut zum Fortsetzen. Je '
+      'mehr du übst desto natürlicher wird es. Schnell-Lesen ist eine '
+      'Fähigkeit. Fähigkeiten können trainiert werden. Du liest bereits '
+      'schneller als zuvor. Willkommen bei FLUX.';
+
   void openDemoBook() {
-    final words = _demoText
+    final text = _appLanguage == 'de' ? _demoTextDe : _demoTextEn;
+    final words = text
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
         .toList();

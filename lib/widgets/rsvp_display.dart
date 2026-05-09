@@ -183,8 +183,9 @@ class RsvpDisplay extends StatelessWidget {
     final scaledCharW = scaledFS * ratio;
 
     final focalX = wordAreaW * 0.40;
-    final prefW = (focalX - scaledCharW * 0.5).clamp(0.0, wordAreaW * 0.7);
-    final orpW = scaledCharW;
+    const orpPad = 2.0;
+    final prefW = (focalX - (scaledCharW + orpPad) * 0.5).clamp(0.0, wordAreaW * 0.7);
+    final orpW = scaledCharW + orpPad;
     final sufW = (wordAreaW - prefW - orpW).clamp(0.0, wordAreaW);
 
     if (isDecrypting) {
