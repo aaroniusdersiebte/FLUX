@@ -334,7 +334,8 @@ class AppState extends ChangeNotifier {
       _wordIndex++;
       _sessionWordsRead++;
       _sessionWordCount++;
-      _dailyWordsRead++;
+      final isDemo = _activeBook?.id == '__demo__';
+      if (!isDemo) _dailyWordsRead++;
       if (_wordIndex >= _words.length) {
         _isPlaying = false;
         _wordIndex = _words.length - 1;
@@ -344,7 +345,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      if (_streakModeEnabled && _dailyWordsRead >= _tierEnd(_dailyGoalTier)) {
+      if (!isDemo && _streakModeEnabled && _dailyWordsRead >= _tierEnd(_dailyGoalTier)) {
         _pendingMilestone = _tierEnd(_dailyGoalTier);
         _dailyGoalTier++;
         StorageService.saveGoalTier(_dailyGoalTier);
@@ -573,6 +574,9 @@ class AppState extends ChangeNotifier {
   void endTutorial() {
     _tutorialDone = true;
     _tutorialStep = -1;
+    _pendingMilestone = null;
+    _words = [];
+    _activeBook = null;
     StorageService.saveTutorialDone();
     notifyListeners();
   }

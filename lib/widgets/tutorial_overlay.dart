@@ -222,8 +222,12 @@ class _StepCallout extends StatelessWidget {
     final isLast = step == 3;
     final btnLabel = isLast ? _L.t(lang, 'done') : _L.t(lang, 'next');
 
-    return Material(
-      color: Colors.transparent,
+    return DefaultTextStyle(
+      style: TextStyle(
+        decoration: TextDecoration.none,
+        color: colors.textPrimary,
+        fontFamily: 'monospace',
+      ),
       child: Stack(
       children: [
         // Gradient fade — passthrough to underlying screen

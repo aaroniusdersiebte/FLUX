@@ -55,8 +55,7 @@ class _RsvpScreenState extends State<RsvpScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused) {
       _appState.pause();
       if (mounted) setState(() => _showPauseOverlay = true);
     }
